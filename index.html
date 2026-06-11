@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Winflex Extrusión — Lanús</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --green:#16a34a;--green-d:#15803d;--green-l:#f0fdf4;
+    --txt:#1f2937;--muted:#6b7280;--border:#e5e7eb;--bg:#f9fafb;--surface:#fff;--surface2:#f3f4f6;
+    --red:#dc2626;--red-l:#fef2f2;--amber:#d97706;--amber-l:#fffbeb;--blue:#2563eb;--blue-l:#eff6ff;--violet:#7c3aed;
+  }
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--txt);background:var(--bg);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .hidden{display:none!important}
+  button{font-family:inherit;cursor:pointer;border:none;font-size:14px}
+  input,select,textarea{font-family:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--border);border-radius:7px;width:100%;background:#fff;color:var(--txt)}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green)}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px}
+  .btn{background:var(--green);color:#fff;padding:9px 16px;border-radius:7px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+  .btn:hover{background:var(--green-d)}
+  .btn-ghost{background:var(--surface2);color:var(--txt);padding:8px 14px;border-radius:7px;font-weight:600}
+  .btn-ghost:hover{background:var(--border)}
+  .btn-sm{padding:5px 10px;font-size:12px;border-radius:6px}
+  .btn-danger{background:var(--red-l);color:var(--red);font-weight:600;padding:8px 14px;border-radius:7px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .grid{display:grid;gap:12px}
+  .muted{color:var(--muted)}
+  h2{font-size:20px;font-weight:700;margin-bottom:4px}
+  h3{font-size:15px;font-weight:700;margin-bottom:10px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--muted);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:.03em}
+  td{padding:9px 10px;border-bottom:1px solid var(--border)}
+  tr:hover td{background:var(--bg)}
+
+  /* LOGIN */
+  #login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(160deg,#f0fdf4,#fff)}
+  .login-box{background:#fff;border:1px solid var(--border);border-radius:18px;padding:34px;width:100%;max-width:360px;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.06)}
+  .logo{display:inline-flex;align-items:center;gap:9px;font-weight:800;font-size:22px;color:var(--green-d);margin-bottom:6px}
+  .logo-mark{width:34px;height:34px;background:var(--green);border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:18px}
+  .pin-input{text-align:center;letter-spacing:8px;font-size:24px;font-weight:700;margin:18px 0}
+
+  /* HEADER */
+  header{background:#fff;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:30}
+  .hbar{max-width:1080px;margin:0 auto;padding:11px 18px;display:flex;align-items:center;gap:14px}
+  .sync{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--surface2);color:var(--muted);display:flex;align-items:center;gap:6px}
+  .sync .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .sync.ok .dot{background:var(--green)} .sync.ok{color:var(--green-d);background:var(--green-l)}
+  .sync.error .dot{background:var(--red)} .sync.error{color:var(--red);background:var(--red-l)}
+  .sync.syncing .dot{background:var(--amber)} .sync.syncing{color:var(--amber);background:var(--amber-l)}
+  nav{max-width:1080px;margin:0 auto;padding:0 18px;display:flex;gap:4px;overflow-x:auto}
+  nav button{padding:11px 14px;background:none;color:var(--muted);font-weight:600;border-bottom:2px solid transparent;white-space:nowrap;font-size:14px}
+  nav button.active{color:var(--green-d);border-bottom-color:var(--green)}
+  main{max-width:1080px;margin:0 auto;padding:20px 18px 60px}
+
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px}
+  .stat .n{font-size:28px;font-weight:800;line-height:1.1}
+  .stat .l{font-size:12px;color:var(--muted);font-weight:600;margin-top:2px}
+  .machine-chip{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:13px}
+  .machine-dot{width:11px;height:11px;border-radius:3px}
+
+  /* MODAL */
+  .modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto}
+  .modal{background:#fff;border-radius:16px;width:100%;max-width:560px;padding:24px;margin:auto}
+  .modal h3{font-size:18px}
+  .field{margin-bottom:12px}
+  .field2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+  /* TABLET */
+  #tablet{min-height:100vh;background:#0f172a;color:#fff;padding:18px}
+  .tab-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .tab-head .logo{color:#fff}
+  .sess-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:760px;margin:0 auto}
+  .sess-card{border-radius:18px;padding:0;overflow:hidden;background:#1e293b;cursor:pointer;border:2px solid transparent}
+  .sess-card:active{transform:scale(.99)}
+  .sess-band{height:10px}
+  .sess-body{padding:20px}
+  .sess-body .mq{font-size:22px;font-weight:800}
+  .sess-body .op{font-size:13px;color:#94a3b8;margin-top:4px}
+  .sess-empty{grid-column:1/-1;text-align:center;color:#64748b;padding:50px 20px;background:#1e293b;border-radius:18px}
+  .tablet-session{max-width:680px;margin:0 auto}
+  .ts-band{border-radius:16px 16px 0 0;padding:22px 22px 18px;color:#fff}
+  .ts-body{background:#1e293b;border-radius:0 0 16px 16px;padding:22px}
+  .ts-body input,.ts-body select{background:#0f172a;border-color:#334155;color:#fff}
+  .bobina-row{display:flex;justify-content:space-between;padding:10px 12px;background:#0f172a;border-radius:8px;margin-bottom:7px;font-size:14px}
+  .big-btn{width:100%;padding:18px;font-size:18px;font-weight:800;border-radius:14px;background:#fff;color:#0f172a;margin-top:6px}
+  #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;z-index:99;opacity:0;transition:opacity .25s;pointer-events:none}
+  #toast.show{opacity:1}
+  #toast.error{background:var(--red)}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login">
+  <div class="login-box">
+    <div class="logo"><span class="logo-mark">W</span> Winflex</div>
+    <div class="muted" style="font-size:13px;margin-bottom:6px">Extrusión · Lanús</div>
+    <input id="pinInput" class="pin-input" type="password" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="off">
+    <button class="btn" style="width:100%;justify-content:center" onclick="doLogin()">Entrar</button>
+    <div id="loginErr" style="color:var(--red);font-size:13px;margin-top:10px;min-height:18px"></div>
+  </div>
+</div>
+
+<!-- ============ PORTAL ============ -->
+<div id="app" class="hidden">
+  <header>
+    <div class="hbar">
+      <div class="logo" style="font-size:18px"><span class="logo-mark" style="width:28px;height:28px;font-size:15px">W</span> Extrusión</div>
+      <div style="flex:1"></div>
+      <div id="syncStatus" class="sync"><span class="dot"></span><span class="t">Local</span></div>
+      <button class="btn-ghost btn-sm" onclick="enterTablet()">📱 Tablet</button>
+      <button class="btn-ghost btn-sm" onclick="logout()">Salir</button>
+    </div>
+    <nav id="nav"></nav>
+  </header>
+  <main id="view"></main>
+</div>
+
+<!-- ============ TABLET ============ -->
+<div id="tablet" class="hidden"></div>
+
+<div id="modalRoot"></div>
+<div id="toast"></div>
+
+<script>
+/* =========================================================
+   CONFIG / CONSTANTES
+   ========================================================= */
+const LS_KEY = 'winflex_extrusion_data';
+const GIST_LS = 'winflex_extrusion_gist';
+const GIST_FILE = 'extrusion.json';
+
+const DESTINOS = {
+  'Laminación':  { tipo:'proceso', area:'Laminación' },
+  'Impresión':   { tipo:'proceso', area:'Impresión' },
+  'Confección':  { tipo:'proceso', area:'Confección' },
+  'Venta directa':{ tipo:'final',  area:'Cliente' },
+  'Uso interno': { tipo:'final',   area:'Planta' }
+};
+const ORIGENES = {
+  laminado:{ label:'Laminado PET/PE', desc:'Disparada por mail (Mati) · asociada a OC',
+             requiereOC:true, destinos:['Laminación'], destinoDefault:'Laminación' },
+  venta:   { label:'Venta a cliente', desc:'Pedido informal (Enrique) · casi nunca con OC',
+             requiereOC:false, destinos:['Venta directa','Impresión','Confección'], destinoDefault:'Venta directa', vendedor:'Enrique' },
+  interno: { label:'Uso interno', desc:'Autogenerada por producción (Jonathan / Horacio)',
+             requiereOC:false, destinos:['Uso interno','Confección'], destinoDefault:'Uso interno' }
+};
+const ESTADOS_PROD = ['Programada','En cola','En producción','Terminada','Cancelada'];
+const ESTADOS_DEST = { proceso:['Pendiente','En tránsito','Recibida'], final:['Pendiente','En tránsito','Entregada'] };
+
+const TABS = [
+  ['dashboard','Tablero'], ['ordenes','Órdenes'], ['produccion','Producción'],
+  ['cronograma','Cronograma'], ['catalogos','Catálogos'], ['analisis','Análisis'], ['config','Config']
+];
+
+/* =========================================================
+   ESTADO
+   ========================================================= */
+let DATA = null;
+let currentTab = 'dashboard';
+let currentUser = '';
+let catSub = 'maquinas';
+let tabletSessionOrdenId = null;
+
+/* =========================================================
+   SEED (datos iniciales)
+   ========================================================= */
+function seedData(){
+  return {
+    schemaVersion:1,
+    config:{
+      planta:'Winflex Lanús — Extrusión',
+      pins:{ '1540':'Matías', '3080':'Jonathan', '0104':'Mirta', '0035':'Agustín', '7070':'Horacio' },
+      operarios:[]
+    },
+    maquinas:[
+      { id:'maq-1', nombre:'Extrusora 1', capas:1, tipo:'Monocapa',     kgHora:null, mpCompatibles:[], especificaciones:'', color:'#16a34a' },
+      { id:'maq-2', nombre:'Extrusora 2', capas:2, tipo:'Bicapa',       kgHora:null, mpCompatibles:[], especificaciones:'', color:'#2563eb' },
+      { id:'maq-3', nombre:'Extrusora 3', capas:3, tipo:'3 capas',      kgHora:null, mpCompatibles:[], especificaciones:'', color:'#d97706' },
+      { id:'maq-4', nombre:'Extrusora 4', capas:5, tipo:'Hasta 5 capas',kgHora:null, mpCompatibles:[], especificaciones:'', color:'#7c3aed' }
+    ],
+    materiasPrimas:[],
+    formatos:[ {id:'fmt-bob',nombre:'Bobina'}, {id:'fmt-tubo',nombre:'Tubo'} ],
+    productos:[],
+    ordenes:[],
+    ordenesEliminadas:{},
+    producciones:[],
+    lastUpdate:new Date().toISOString()
+  };
+}
+
+/* =========================================================
+   HELPERS
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const uid = p => (p||'id')+'-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const nowISO = () => new Date().toISOString();
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtFecha(iso){ if(!iso) return '—'; const d=new Date(iso); return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}); }
+function maqById(id){ return (DATA.maquinas||[]).find(m=>m.id===id); }
+function toast(msg,type){ const t=$('toast'); t.textContent=msg; t.className='show'+(type==='error'?' error':''); setTimeout(()=>t.className='',2600); }
+function esHoy(iso){ if(!iso) return false; const d=new Date(iso),n=new Date(); return d.toDateString()===n.toDateString(); }
+
+/* =========================================================
+   SYNC — GitHub Gist (credenciales en localStorage)
+   ========================================================= */
+function getGistCreds(){ try{ return JSON.parse(localStorage.getItem(GIST_LS)); }catch(e){ return null; } }
+function setGistCreds(gistId,token){ localStorage.setItem(GIST_LS,JSON.stringify({gistId,token})); }
+function clearGistCreds(){ localStorage.removeItem(GIST_LS); }
+
+function setSync(txt,cls){ const el=$('syncStatus'); if(!el) return; el.className='sync '+(cls||''); el.querySelector('.t').textContent=txt; }
+
+// Une dos arrays de objetos {id, updatedAt|timestamp}: gana el más nuevo, sin perder ninguno.
+function mergeById(remoteArr, localArr){
+  const m=new Map();
+  (remoteArr||[]).forEach(x=>{ if(x&&x.id) m.set(x.id,x); });
+  (localArr||[]).forEach(x=>{
+    if(!x||!x.id) return;
+    const r=m.get(x.id);
+    if(!r){ m.set(x.id,x); return; }
+    const tl=x.updatedAt||x.timestamp||'', tr=r.updatedAt||r.timestamp||'';
+    m.set(x.id, tl>=tr ? x : r);
+  });
+  return [...m.values()];
+}
+function mergeTombstones(a,b){
+  const out={};
+  [a,b].forEach(o=>{ if(o&&typeof o==='object') Object.entries(o).forEach(([id,ts])=>{ if(!out[id]||ts>out[id]) out[id]=ts; }); });
+  const lim=new Date(Date.now()-120*864e5).toISOString();
+  Object.keys(out).forEach(id=>{ if(out[id]<lim) delete out[id]; });
+  return out;
+}
+function aplicarTombstones(arr,tomb){
+  if(!tomb) return arr||[];
+  return (arr||[]).filter(o=>{ const ts=tomb[o.id]; return !ts || (o.updatedAt||'')>ts; });
+}
+
+async function loadData(){
+  setSync('Cargando…','syncing');
+  const cached=localStorage.getItem(LS_KEY);
+  const creds=getGistCreds();
+  if(creds){
+    try{
+      const r=await fetch('https://api.github.com/gists/'+creds.gistId,{headers:{'Authorization':'token '+creds.token,'Accept':'application/vnd.github+json'}});
+      if(r.ok){
+        const j=await r.json(); const f=j.files&&j.files[GIST_FILE];
+        if(f&&f.content){
+          DATA=migrate(JSON.parse(f.content));
+          localStorage.setItem(LS_KEY,JSON.stringify(DATA));
+          setSync('Sincronizado (Gist)','ok'); return DATA;
+        }
+        // Gist existe pero sin nuestro archivo todavía → sembrar
+        DATA=seedData(); localStorage.setItem(LS_KEY,JSON.stringify(DATA));
+        setSync('Gist vacío · listo','ok'); return DATA;
+      } else { setSync('Gist '+r.status,'error'); }
+    }catch(e){ setSync('Gist offline','error'); }
+  }
+  if(cached){ try{ DATA=migrate(JSON.parse(cached)); setSync(creds?'Offline (cache)':'Local','error'); return DATA; }catch(e){ localStorage.removeItem(LS_KEY); } }
+  DATA=seedData(); localStorage.setItem(LS_KEY,JSON.stringify(DATA)); setSync('Local','');
+  return DATA;
+}
+
+async function saveData(){
+  DATA.lastUpdate=nowISO();
+  localStorage.setItem(LS_KEY,JSON.stringify(DATA));
+  const creds=getGistCreds();
+  if(!creds){ setSync('Local (sin Gist)',''); return; }
+  setSync('Guardando…','syncing');
+  try{
+    // GET fresco para mergear con lo que cargó la tablet u otro equipo
+    const fr=await fetch('https://api.github.com/gists/'+creds.gistId,{headers:{'Authorization':'token '+creds.token,'Accept':'application/vnd.github+json'}});
+    let remote={};
+    if(fr.ok){ const fj=await fr.json(); const f=fj.files&&fj.files[GIST_FILE]; if(f&&f.content) remote=JSON.parse(f.content); }
+    const merged=JSON.parse(JSON.stringify(DATA)); // catálogos + config del LOCAL
+    merged.ordenesEliminadas=mergeTombstones(remote.ordenesEliminadas,DATA.ordenesEliminadas);
+    merged.ordenes=aplicarTombstones(mergeById(remote.ordenes,DATA.ordenes),merged.ordenesEliminadas);
+    merged.producciones=mergeById(remote.producciones,DATA.producciones); // tablet + portal sin pisar
+    merged.lastUpdate=nowISO();
+    const content=JSON.stringify(merged);
+    const r=await fetch('https://api.github.com/gists/'+creds.gistId,{
+      method:'PATCH',
+      headers:{'Authorization':'token '+creds.token,'Accept':'application/vnd.github+json','Content-Type':'application/json'},
+      body:JSON.stringify({files:{[GIST_FILE]:{content}}})
+    });
+    if(r.ok){ DATA=merged; localStorage.setItem(LS_KEY,JSON.stringify(DATA)); setSync('Sincronizado (Gist)','ok'); }
+    else { setSync('Error '+r.status+' · NO subido','error'); toast('No se pudo guardar en la nube (HTTP '+r.status+')','error'); }
+  }catch(e){ setSync('Sin conexión · NO subido','error'); toast('Sin conexión con la nube','error'); }
+}
+
+function migrate(d){
+  const s=seedData();
+  d.schemaVersion=d.schemaVersion||1;
+  d.config=Object.assign({},s.config,d.config||{});
+  ['maquinas','materiasPrimas','formatos','productos','ordenes','producciones'].forEach(k=>{ if(!Array.isArray(d[k])) d[k]=s[k]; });
+  if(!d.ordenesEliminadas) d.ordenesEliminadas={};
+  if(!d.maquinas.length) d.maquinas=s.maquinas;
+  if(!d.formatos.length) d.formatos=s.formatos;
+  return d;
+}
+
+async function createGist(token){
+  const body={ description:'Winflex — Extrusión Lanús (datos)', public:false, files:{[GIST_FILE]:{content:JSON.stringify(DATA||seedData())}} };
+  const r=await fetch('https://api.github.com/gists',{method:'POST',headers:{'Authorization':'token '+token,'Accept':'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const j=await r.json(); return j.id;
+}
+
+/* =========================================================
+   LOGIN
+   ========================================================= */
+function doLogin(){
+  const pin=$('pinInput').value.trim();
+  const name=(DATA&&DATA.config.pins[pin])||null;
+  if(name){ currentUser=name; $('loginErr').textContent=''; $('login').classList.add('hidden'); $('app').classList.remove('hidden'); render(); }
+  else { $('loginErr').textContent='PIN incorrecto'; $('pinInput').value=''; }
+}
+function logout(){ currentUser=''; $('app').classList.add('hidden'); $('tablet').classList.add('hidden'); $('login').classList.remove('hidden'); $('pinInput').value=''; }
+$('pinInput')&&$('pinInput').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+
+/* =========================================================
+   RENDER PORTAL
+   ========================================================= */
+function render(){
+  const nav=$('nav');
+  nav.innerHTML=TABS.map(([id,lbl])=>`<button class="${id===currentTab?'active':''}" onclick="go('${id}')">${lbl}</button>`).join('');
+  const v=$('view');
+  ({dashboard:renderDashboard,ordenes:renderOrdenes,produccion:renderProduccion,cronograma:renderCronograma,catalogos:renderCatalogos,analisis:renderAnalisis,config:renderConfig}[currentTab]||renderDashboard)(v);
+}
+function go(t){ currentTab=t; render(); }
+
+function renderDashboard(v){
+  const ords=DATA.ordenes;
+  const enProd=ords.filter(o=>o.estadoProduccion==='En producción');
+  const enCola=ords.filter(o=>o.estadoProduccion==='En cola'||o.estadoProduccion==='Programada');
+  const maqCorriendo=new Set(enProd.map(o=>o.maquinaId)).size;
+  const kgHoy=DATA.producciones.filter(p=>esHoy(p.timestamp)).reduce((a,p)=>a+(+p.peso||0),0);
+  const porDestino={};
+  ords.filter(o=>o.estadoProduccion!=='Terminada'&&o.estadoProduccion!=='Cancelada').forEach(o=>{ porDestino[o.destino]=(porDestino[o.destino]||0)+1; });
+
+  v.innerHTML=`
+    <h2>Tablero</h2>
+    <div class="muted" style="margin-bottom:16px">Hola ${esc(currentUser)} · ${esc(DATA.config.planta)}</div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:18px">
+      <div class="stat"><div class="n">${enProd.length}</div><div class="l">Órdenes en producción</div></div>
+      <div class="stat"><div class="n">${enCola.length}</div><div class="l">En cola / programadas</div></div>
+      <div class="stat"><div class="n">${maqCorriendo}<span style="font-size:16px;color:var(--muted)"> / 2</span></div><div class="l">Máquinas corriendo</div></div>
+      <div class="stat"><div class="n">${kgHoy.toLocaleString('es-AR')}<span style="font-size:15px;color:var(--muted)"> kg</span></div><div class="l">Producido hoy</div></div>
+    </div>
+    <div class="card">
+      <h3>Máquinas</h3>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+        ${DATA.maquinas.map(m=>{ const act=enProd.find(o=>o.maquinaId===m.id);
+          return `<div style="border:1px solid var(--border);border-radius:10px;padding:13px;border-left:4px solid ${m.color}">
+            <div class="machine-chip"><span class="machine-dot" style="background:${m.color}"></span>${esc(m.nombre)}</div>
+            <div class="muted" style="font-size:12px;margin-top:3px">${esc(m.tipo)} · ${m.capas} capa${m.capas>1?'s':''}</div>
+            <div style="margin-top:8px;font-size:13px">${act?`<span class="pill" style="background:var(--green-l);color:var(--green-d)">▶ Corriendo</span> ${esc(act.numero)}`:'<span class="pill" style="background:var(--surface2);color:var(--muted)">Parada</span>'}</div>
+          </div>`; }).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <h3>Órdenes activas por destino</h3>
+      ${Object.keys(porDestino).length?`<div class="row">${Object.entries(porDestino).map(([d,n])=>`<div style="border:1px solid var(--border);border-radius:8px;padding:8px 14px"><b style="font-size:18px">${n}</b> <span class="muted" style="font-size:13px">${esc(d)}</span></div>`).join('')}</div>`:'<div class="muted">Sin órdenes activas. Creá una en la pestaña Órdenes.</div>'}
+    </div>`;
+}
+
+function pillEstadoProd(e){ const c={'En producción':['var(--green-l)','var(--green-d)'],'En cola':['var(--amber-l)','var(--amber)'],'Programada':['var(--surface2)','var(--muted)'],'Terminada':['var(--blue-l)','var(--blue)'],'Cancelada':['var(--red-l)','var(--red)']}[e]||['var(--surface2)','var(--muted)']; return `<span class="pill" style="background:${c[0]};color:${c[1]}">${esc(e)}</span>`; }
+
+function renderOrdenes(v){
+  const ords=[...DATA.ordenes].sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+  v.innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <h2 style="flex:1">Órdenes de producción</h2>
+      <button class="btn" onclick="openOrdenModal()">＋ Nueva OP</button>
+    </div>
+    <div class="card" style="padding:0;overflow-x:auto">
+      ${ords.length?`<table>
+        <thead><tr><th>OP</th><th>Origen</th><th>Máquina</th><th>Producto</th><th>Formato</th><th>Destino</th><th>Producción</th><th></th></tr></thead>
+        <tbody>${ords.map(o=>{ const m=maqById(o.maquinaId);
+          return `<tr>
+            <td><b>${esc(o.numero)}</b><div class="muted" style="font-size:11px">${fmtFecha(o.createdAt)}</div></td>
+            <td>${esc(ORIGENES[o.origen]?.label||o.origen)}${o.oc?`<div class="muted" style="font-size:11px">OC ${esc(o.oc)}</div>`:''}</td>
+            <td>${m?`<span class="machine-chip" style="font-size:12px"><span class="machine-dot" style="background:${m.color}"></span>${esc(m.nombre)}</span>`:'—'}</td>
+            <td>${esc(o.productoDesc||'—')}<div class="muted" style="font-size:11px">${o.cantidadObjetivo?esc(o.cantidadObjetivo)+' '+esc(o.unidad||'kg'):''}</div></td>
+            <td>${esc(o.formato||'—')}</td>
+            <td>${esc(o.destino)} <span class="pill" style="background:${DESTINOS[o.destino]?.tipo==='final'?'var(--amber-l)':'var(--green-l)'};color:${DESTINOS[o.destino]?.tipo==='final'?'var(--amber)':'var(--green-d)'};margin-left:4px">${DESTINOS[o.destino]?.tipo==='final'?'final':'en proceso'}</span></td>
+            <td>${pillEstadoProd(o.estadoProduccion)}</td>
+            <td><button class="btn-ghost btn-sm" onclick="openOrdenModal('${o.id}')">Ver</button></td>
+          </tr>`; }).join('')}</tbody></table>`
+      :`<div style="padding:40px;text-align:center" class="muted">Todavía no hay órdenes. Apretá <b>Nueva OP</b> para empezar.</div>`}
+    </div>`;
+}
+
+function openOrdenModal(id){
+  const ed=id?DATA.ordenes.find(o=>o.id===id):null;
+  const o=ed||{ origen:'laminado', destino:'Laminación', formato:'Bobina', unidad:'kg', estadoProduccion:'Programada', estadoDestino:'Pendiente' };
+  const orig=ORIGENES[o.origen];
+  const tipo=DESTINOS[o.destino]?.tipo||'proceso';
+  const root=$('modalRoot');
+  root.innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">
+    <div style="display:flex;align-items:center;margin-bottom:16px"><h3 style="flex:1">${ed?'Orden '+esc(ed.numero):'Nueva orden de producción'}</h3><button class="btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
+
+    <div class="field"><label>Origen de la orden</label>
+      <select id="o_origen" onchange="onOrigenChange()">${Object.entries(ORIGENES).map(([k,val])=>`<option value="${k}" ${o.origen===k?'selected':''}>${val.label}</option>`).join('')}</select>
+      <div id="o_origenDesc" class="muted" style="font-size:12px;margin-top:4px">${esc(orig.desc)}</div>
+    </div>
+
+    <div id="o_ocWrap" class="field2" style="${orig.requiereOC?'':'display:none'}">
+      <div><label>Cliente</label><input id="o_cliente" value="${esc(o.cliente||'')}" placeholder="Ej: Molinos / Don Yeyo"></div>
+      <div><label>OC del cliente</label><input id="o_oc" value="${esc(o.oc||'')}" placeholder="N° de OC"></div>
+    </div>
+    <div id="o_vendWrap" class="field" style="${o.origen==='venta'?'':'display:none'}"><label>Vendedor</label><input id="o_vend" value="${esc(o.vendedor||'Enrique')}"></div>
+
+    <div class="field2">
+      <div><label>Máquina</label><select id="o_maq">${DATA.maquinas.map(m=>`<option value="${m.id}" ${o.maquinaId===m.id?'selected':''}>${esc(m.nombre)} · ${esc(m.tipo)}</option>`).join('')}</select></div>
+      <div><label>Formato de salida</label><select id="o_formato">${DATA.formatos.map(f=>`<option ${o.formato===f.nombre?'selected':''}>${esc(f.nombre)}</option>`).join('')}</select></div>
+    </div>
+
+    <div class="field"><label>Producto / descripción</label><input id="o_prod" value="${esc(o.productoDesc||'')}" placeholder="Ej: PET cristal 30µ ancho 720"></div>
+
+    <div class="field2">
+      <div><label>Cantidad objetivo</label><input id="o_cant" type="number" value="${o.cantidadObjetivo||''}" placeholder="0"></div>
+      <div><label>Unidad</label><select id="o_unidad"><option ${o.unidad==='kg'?'selected':''}>kg</option><option ${o.unidad==='millar'?'selected':''}>millar</option><option ${o.unidad==='unid'?'selected':''}>unid</option></select></div>
+    </div>
+
+    <div class="field"><label>Destino</label>
+      <select id="o_destino" onchange="onDestinoChange()">${orig.destinos.map(d=>`<option ${o.destino===d?'selected':''}>${d}</option>`).join('')}</select>
+      <div id="o_destTipo" class="muted" style="font-size:12px;margin-top:4px"></div>
+    </div>
+
+    ${ed?`<div class="field2">
+      <div><label>Estado producción</label><select id="o_estProd">${ESTADOS_PROD.map(e=>`<option ${o.estadoProduccion===e?'selected':''}>${e}</option>`).join('')}</select></div>
+      <div><label>Estado destino</label><select id="o_estDest">${(ESTADOS_DEST[tipo]||[]).map(e=>`<option ${o.estadoDestino===e?'selected':''}>${e}</option>`).join('')}</select></div>
+    </div>`:''}
+
+    <div class="field"><label>Notas</label><textarea id="o_notas" rows="2">${esc(o.notas||'')}</textarea></div>
+
+    <div style="display:flex;gap:10px;margin-top:6px">
+      ${ed?`<button class="btn-danger" onclick="borrarOrden('${ed.id}')">Eliminar</button>`:''}
+      <div style="flex:1"></div>
+      <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn" onclick="guardarOrden('${ed?ed.id:''}')">${ed?'Guardar cambios':'Crear orden'}</button>
+    </div>
+  </div></div>`;
+  onDestinoChange();
+}
+function onOrigenChange(){
+  const k=$('o_origen').value, orig=ORIGENES[k];
+  $('o_origenDesc').textContent=orig.desc;
+  $('o_ocWrap').style.display=orig.requiereOC?'grid':'none';
+  $('o_vendWrap').style.display=k==='venta'?'block':'none';
+  $('o_destino').innerHTML=orig.destinos.map(d=>`<option ${d===orig.destinoDefault?'selected':''}>${d}</option>`).join('');
+  onDestinoChange();
+}
+function onDestinoChange(){
+  const d=$('o_destino').value, tipo=DESTINOS[d]?.tipo;
+  $('o_destTipo').innerHTML=tipo==='final'?'→ Producto <b>final</b> · sale terminado de extrusión':'→ Producto <b>en proceso</b> · pasa al área de '+esc(DESTINOS[d]?.area||d);
+  const es=$('o_estDest'); if(es){ es.innerHTML=(ESTADOS_DEST[tipo]||[]).map(e=>`<option>${e}</option>`).join(''); }
+}
+function nextOPNumero(){
+  const n=DATA.ordenes.length+1;
+  return 'OP-'+String(n).padStart(4,'0');
+}
+async function guardarOrden(id){
+  const origen=$('o_origen').value;
+  const destino=$('o_destino').value;
+  const obj={
+    origen,
+    cliente:$('o_cliente')?$('o_cliente').value.trim():'',
+    oc:$('o_oc')?$('o_oc').value.trim():'',
+    vendedor:$('o_vend')?$('o_vend').value.trim():'',
+    maquinaId:$('o_maq').value,
+    formato:$('o_formato').value,
+    productoDesc:$('o_prod').value.trim(),
+    cantidadObjetivo:+$('o_cant').value||null,
+    unidad:$('o_unidad').value,
+    destino,
+    tipoProducto:DESTINOS[destino]?.tipo,
+    notas:$('o_notas').value.trim(),
+    updatedAt:nowISO()
+  };
+  if(id){
+    const o=DATA.ordenes.find(x=>x.id===id);
+    obj.estadoProduccion=$('o_estProd').value; obj.estadoDestino=$('o_estDest').value;
+    Object.assign(o,obj);
+  } else {
+    Object.assign(obj,{ id:uid('op'), numero:nextOPNumero(), estadoProduccion:'Programada', estadoDestino:'Pendiente', creadoPor:currentUser, createdAt:nowISO() });
+    DATA.ordenes.push(obj);
+  }
+  closeModal(); render(); await saveData(); toast('Orden guardada');
+}
+async function borrarOrden(id){
+  if(!confirm('¿Eliminar esta orden?')) return;
+  DATA.ordenes=DATA.ordenes.filter(o=>o.id!==id);
+  DATA.ordenesEliminadas[id]=nowISO();
+  closeModal(); render(); await saveData(); toast('Orden eliminada');
+}
+function closeModal(){ $('modalRoot').innerHTML=''; }
+
+function renderProduccion(v){
+  const prods=[...DATA.producciones].sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
+  v.innerHTML=`
+    <h2 style="margin-bottom:4px">Producción</h2>
+    <div class="muted" style="margin-bottom:14px">Bobinas / unidades que cargan los operarios desde la tablet. También se pueden editar acá.</div>
+    <div class="card" style="padding:0;overflow-x:auto">
+      ${prods.length?`<table>
+        <thead><tr><th>Fecha</th><th>Máquina</th><th>OP</th><th>Formato</th><th>Peso</th><th>Operario</th></tr></thead>
+        <tbody>${prods.map(p=>{ const m=maqById(p.maquinaId), o=DATA.ordenes.find(x=>x.id===p.ordenId);
+          return `<tr><td>${fmtFecha(p.timestamp)}</td><td>${m?`<span class="machine-dot" style="display:inline-block;background:${m.color}"></span> ${esc(m.nombre)}`:'—'}</td><td>${esc(o?.numero||'—')}</td><td>${esc(p.formato||'—')}</td><td><b>${esc(p.peso||0)}</b> kg</td><td>${esc(p.operario||'—')}</td></tr>`; }).join('')}</tbody></table>`
+      :`<div style="padding:40px;text-align:center" class="muted">Sin producción cargada todavía. Las bobinas se cargan desde el <b>Modo Tablet</b>.</div>`}
+    </div>`;
+}
+
+function renderCronograma(v){
+  v.innerHTML=`<h2>Cronograma</h2>
+    <div class="card" style="text-align:center;padding:40px" class="muted">
+      <div style="font-size:40px">🗓️</div>
+      <p class="muted" style="margin-top:8px">Planificación de qué máquina corre qué y cuándo (mantenimiento, cambio de matriz, etc.).<br>Lo armamos cuando definamos las planillas de OP con los ingenieros.</p>
+    </div>`;
+}
+function renderAnalisis(v){
+  v.innerHTML=`<h2>Análisis</h2>
+    <div class="card" style="text-align:center;padding:40px">
+      <div style="font-size:40px">📊</div>
+      <p class="muted" style="margin-top:8px">Rendimiento por máquina (kg/h reales vs nominal), scrap, kg por destino, export a Excel.<br>Se llena solo cuando empiece a entrar producción real.</p>
+    </div>`;
+}
+
+/* =========================================================
+   CATÁLOGOS
+   ========================================================= */
+function renderCatalogos(v){
+  const subs=[['maquinas','Máquinas'],['mp','Materias primas'],['formatos','Formatos'],['productos','Productos']];
+  v.innerHTML=`<h2 style="margin-bottom:12px">Catálogos</h2>
+    <div class="row" style="margin-bottom:16px">${subs.map(([k,l])=>`<button class="${catSub===k?'btn':'btn-ghost'}" onclick="catSub='${k}';render()">${l}</button>`).join('')}</div>
+    <div id="catBody"></div>`;
+  ({maquinas:renderCatMaquinas,mp:renderCatMP,formatos:renderCatFormatos,productos:renderCatProductos}[catSub])($('catBody'));
+}
+
+function renderCatMaquinas(c){
+  c.innerHTML=DATA.maquinas.map(m=>`
+    <div class="card" style="border-left:4px solid ${m.color}">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <span class="machine-dot" style="width:16px;height:16px;background:${m.color}"></span>
+        <b style="font-size:16px;flex:1">${esc(m.nombre)} <span class="muted" style="font-weight:400">· ${esc(m.tipo)} (${m.capas} capa${m.capas>1?'s':''})</span></b>
+      </div>
+      <div class="field2">
+        <div><label>kg / hora</label><input type="number" value="${m.kgHora||''}" onchange="setMaq('${m.id}','kgHora',this.value)" placeholder="por confirmar"></div>
+        <div><label>Color (tablet)</label><input type="color" value="${m.color}" onchange="setMaq('${m.id}','color',this.value)" style="height:38px;padding:3px"></div>
+      </div>
+      <div class="field" style="margin-top:10px"><label>Materias primas compatibles</label>
+        <div class="row">${(DATA.materiasPrimas||[]).length?DATA.materiasPrimas.map(mp=>`<label style="display:flex;align-items:center;gap:5px;font-weight:400;font-size:13px;margin:0"><input type="checkbox" style="width:auto" ${m.mpCompatibles.includes(mp.id)?'checked':''} onchange="toggleMP('${m.id}','${mp.id}',this.checked)"> ${esc(mp.nombre)}</label>`).join(''):'<span class="muted" style="font-size:13px">Cargá materias primas primero en la solapa Materias primas.</span>'}</div>
+      </div>
+      <div class="field" style="margin-top:8px"><label>Especificaciones</label><textarea rows="2" onchange="setMaq('${m.id}','especificaciones',this.value)" placeholder="Ancho máximo, espesores, etc.">${esc(m.especificaciones||'')}</textarea></div>
+    </div>`).join('');
+}
+async function setMaq(id,k,val){ const m=maqById(id); m[k]=(k==='kgHora')?(+val||null):val; await saveData(); if(k==='color')render(); }
+async function toggleMP(maqId,mpId,on){ const m=maqById(maqId); const i=m.mpCompatibles.indexOf(mpId); if(on&&i<0)m.mpCompatibles.push(mpId); if(!on&&i>=0)m.mpCompatibles.splice(i,1); await saveData(); }
+
+function renderCatMP(c){ catList(c,'materiasPrimas','materia prima','Ej: PET cristal virgen, rPET, PE soplado…'); }
+function renderCatFormatos(c){ catList(c,'formatos','formato','Ej: Bobina, Tubo, Lámina plana…'); }
+function renderCatProductos(c){ catList(c,'productos','producto','Ej: Lámina PET 30µ, Bolsa LDPE 40x60…'); }
+function catList(c,key,nombre,ph){
+  const arr=DATA[key]||[];
+  c.innerHTML=`<div class="card">
+    <div class="row" style="margin-bottom:12px"><input id="newCat" placeholder="${ph}" style="flex:1" onkeydown="if(event.key==='Enter')addCat('${key}')"><button class="btn" onclick="addCat('${key}')">＋ Agregar</button></div>
+    ${arr.length?`<table><tbody>${arr.map(x=>`<tr><td>${esc(x.nombre)}</td><td style="text-align:right;width:40px"><button class="btn-ghost btn-sm" onclick="delCat('${key}','${x.id}')">✕</button></td></tr>`).join('')}</tbody></table>`:`<div class="muted" style="padding:14px 2px">Sin ${nombre}s cargadas.</div>`}
+  </div>`;
+}
+async function addCat(key){ const inp=$('newCat'); const val=inp.value.trim(); if(!val) return; DATA[key].push({id:uid(key),nombre:val}); render(); await saveData(); }
+async function delCat(key,id){ DATA[key]=DATA[key].filter(x=>x.id!==id); if(key==='materiasPrimas')DATA.maquinas.forEach(m=>m.mpCompatibles=m.mpCompatibles.filter(x=>x!==id)); render(); await saveData(); }
+
+/* =========================================================
+   CONFIG
+   ========================================================= */
+function renderConfig(v){
+  const creds=getGistCreds();
+  v.innerHTML=`<h2 style="margin-bottom:14px">Configuración</h2>
+    <div class="card">
+      <h3>Sincronización (GitHub Gist)</h3>
+      <p class="muted" style="font-size:13px;margin-bottom:12px">${creds?`Conectado al Gist <code style="background:var(--surface2);padding:2px 6px;border-radius:4px">${esc(creds.gistId)}</code>`:'Sin conectar — la app guarda solo en este equipo. Para que portal y tablet compartan datos, conectá un Gist.'}</p>
+      ${creds?`<button class="btn-danger" onclick="clearGistCreds();render();toast('Desconectado')">Desconectar</button>`
+      :`<div class="field"><label>Token de GitHub (empieza con ghp_ o github_pat_)</label><input id="cfgToken" type="password" placeholder="ghp_…"></div>
+        <div class="row">
+          <button class="btn" onclick="cfgCrearGist()">Crear Gist nuevo</button>
+          <button class="btn-ghost" onclick="cfgMostrarConectar()">Conectar a uno existente</button>
+        </div>
+        <div id="cfgConectar" class="hidden" style="margin-top:12px">
+          <div class="field"><label>Gist ID</label><input id="cfgGistId" placeholder="id del gist existente"></div>
+          <button class="btn" onclick="cfgConectarGist()">Conectar</button>
+        </div>
+        <div id="cfgStatus" style="font-size:13px;margin-top:10px"></div>`}
+    </div>
+    <div class="card">
+      <h3>PINs de acceso</h3>
+      <table><tbody>${Object.entries(DATA.config.pins).map(([pin,name])=>`<tr><td>${esc(name)}</td><td class="muted" style="font-family:monospace">${esc(pin)}</td><td style="text-align:right"><button class="btn-ghost btn-sm" onclick="delPin('${pin}')">✕</button></td></tr>`).join('')}</tbody></table>
+      <div class="row" style="margin-top:12px"><input id="pinName" placeholder="Nombre" style="flex:2"><input id="pinNum" placeholder="PIN" style="flex:1" maxlength="6"><button class="btn" onclick="addPin()">＋</button></div>
+    </div>
+    <div class="card">
+      <h3>Datos</h3>
+      <p class="muted" style="font-size:13px;margin-bottom:10px">Última actualización: ${fmtFecha(DATA.lastUpdate)}</p>
+      <div class="row"><button class="btn-ghost" onclick="exportJSON()">Exportar JSON</button></div>
+    </div>`;
+}
+function cfgMostrarConectar(){ $('cfgConectar').classList.toggle('hidden'); }
+async function cfgCrearGist(){
+  const token=$('cfgToken').value.trim(); const st=$('cfgStatus');
+  if(!token.startsWith('ghp_')&&!token.startsWith('github_pat_')){ st.innerHTML='<span style="color:var(--red)">El token debe empezar con ghp_ o github_pat_</span>'; return; }
+  st.textContent='Creando Gist…';
+  try{ const id=await createGist(token); setGistCreds(id,token); st.innerHTML='<span style="color:var(--green-d)">Gist creado: '+esc(id)+'</span>'; await loadData(); render(); }
+  catch(e){ st.innerHTML='<span style="color:var(--red)">Error: '+esc(e.message)+'</span>'; }
+}
+async function cfgConectarGist(){
+  const token=$('cfgToken').value.trim(), id=$('cfgGistId').value.trim(); const st=$('cfgStatus');
+  if(!id){ st.innerHTML='<span style="color:var(--red)">Pegá el Gist ID</span>'; return; }
+  st.textContent='Conectando…';
+  try{ const r=await fetch('https://api.github.com/gists/'+id,{headers:{'Authorization':'token '+token,'Accept':'application/vnd.github+json'}}); if(!r.ok)throw new Error('HTTP '+r.status); setGistCreds(id,token); await loadData(); render(); toast('Conectado'); }
+  catch(e){ st.innerHTML='<span style="color:var(--red)">Error: '+esc(e.message)+'</span>'; }
+}
+async function addPin(){ const n=$('pinName').value.trim(), p=$('pinNum').value.trim(); if(!n||!p)return; DATA.config.pins[p]=n; render(); await saveData(); }
+async function delPin(p){ delete DATA.config.pins[p]; render(); await saveData(); }
+function exportJSON(){ const blob=new Blob([JSON.stringify(DATA,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='extrusion-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); }
+
+/* =========================================================
+   MODO TABLET — sesiones por máquina (máx 2 simultáneas)
+   ========================================================= */
+function enterTablet(){ tabletSessionOrdenId=null; $('app').classList.add('hidden'); $('tablet').classList.remove('hidden'); renderTablet(); }
+function exitTablet(){ $('tablet').classList.add('hidden'); $('app').classList.remove('hidden'); render(); }
+
+function renderTablet(){
+  const t=$('tablet');
+  if(tabletSessionOrdenId){ return renderTabletSession(t); }
+  // órdenes en producción = sesiones abiertas
+  const activas=DATA.ordenes.filter(o=>o.estadoProduccion==='En producción');
+  // también las que están "En cola"/"Programada" se pueden arrancar
+  const arrancables=DATA.ordenes.filter(o=>o.estadoProduccion==='En cola'||o.estadoProduccion==='Programada');
+  t.innerHTML=`
+    <div class="tab-head">
+      <div class="logo"><span class="logo-mark">W</span> Tablet · Extrusión</div>
+      <button class="btn-ghost btn-sm" onclick="exitTablet()" style="background:#1e293b;color:#fff">← Portal</button>
+    </div>
+    <div style="max-width:760px;margin:0 auto 14px;color:#94a3b8;font-size:14px">Tocá la máquina en la que vas a cargar. El color de cada máquina te acompaña mientras cargás para que no haya confusión.</div>
+    <div class="sess-grid">
+      ${activas.length?activas.map(o=>{ const m=maqById(o.maquinaId);
+        return `<div class="sess-card" style="border-color:${m?.color}" onclick="openSession('${o.id}')">
+          <div class="sess-band" style="background:${m?.color}"></div>
+          <div class="sess-body">
+            <div class="mq" style="color:${m?.color}">${esc(m?.nombre||'?')}</div>
+            <div class="op">${esc(o.numero)} · ${esc(o.productoDesc||'sin descripción')}</div>
+            <div class="op" style="margin-top:8px;color:#cbd5e1">${DATA.producciones.filter(p=>p.ordenId===o.id&&esHoy(p.timestamp)).length} bobinas hoy</div>
+          </div>
+        </div>`; }).join(''):`<div class="sess-empty">No hay máquinas corriendo.<br><span style="font-size:13px">Arrancá una orden de las que están en cola 👇</span></div>`}
+    </div>
+    ${arrancables.length?`<div style="max-width:760px;margin:22px auto 0">
+      <div style="color:#94a3b8;font-size:13px;margin-bottom:8px;font-weight:600">EN COLA — tocá para arrancar</div>
+      ${arrancables.map(o=>{ const m=maqById(o.maquinaId); return `<div class="bobina-row" style="cursor:pointer" onclick="arrancarOrden('${o.id}')"><span><span class="machine-dot" style="display:inline-block;background:${m?.color}"></span> ${esc(m?.nombre||'?')} · ${esc(o.numero)}</span><span style="color:#22c55e;font-weight:700">▶ Arrancar</span></div>`; }).join('')}
+    </div>`:''}`;
+}
+async function arrancarOrden(id){ const o=DATA.ordenes.find(x=>x.id===id); o.estadoProduccion='En producción'; o.updatedAt=nowISO(); await saveData(); renderTablet(); }
+function openSession(id){ tabletSessionOrdenId=id; renderTablet(); }
+
+function renderTabletSession(t){
+  const o=DATA.ordenes.find(x=>x.id===tabletSessionOrdenId); if(!o){ tabletSessionOrdenId=null; return renderTablet(); }
+  const m=maqById(o.maquinaId);
+  const bobinas=DATA.producciones.filter(p=>p.ordenId===o.id).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
+  const totalKg=bobinas.reduce((a,b)=>a+(+b.peso||0),0);
+  t.innerHTML=`<div class="tablet-session">
+    <div class="ts-band" style="background:${m?.color}">
+      <div style="display:flex;align-items:center"><button class="btn-ghost btn-sm" onclick="tabletSessionOrdenId=null;renderTablet()" style="background:rgba(255,255,255,.2);color:#fff">← Máquinas</button><div style="flex:1"></div><span class="pill" style="background:rgba(255,255,255,.25);color:#fff">${esc(o.estadoProduccion)}</span></div>
+      <div style="font-size:26px;font-weight:800;margin-top:12px">${esc(m?.nombre||'?')}</div>
+      <div style="opacity:.9;font-size:14px">${esc(o.numero)} · ${esc(o.productoDesc||'')} · ${esc(o.formato)}</div>
+    </div>
+    <div class="ts-body">
+      <div style="display:flex;gap:14px;margin-bottom:16px">
+        <div style="flex:1;background:#0f172a;border-radius:10px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800">${bobinas.length}</div><div style="font-size:12px;color:#94a3b8">bobinas</div></div>
+        <div style="flex:1;background:#0f172a;border-radius:10px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800">${totalKg.toLocaleString('es-AR')}</div><div style="font-size:12px;color:#94a3b8">kg total${o.cantidadObjetivo?` / ${o.cantidadObjetivo}`:''}</div></div>
+      </div>
+      <div class="field2">
+        <div><label style="color:#94a3b8">Peso (kg)</label><input id="b_peso" type="number" inputmode="decimal" placeholder="0"></div>
+        <div><label style="color:#94a3b8">Metros</label><input id="b_metros" type="number" inputmode="decimal" placeholder="opcional"></div>
+      </div>
+      <div class="field2" style="margin-top:10px">
+        <div><label style="color:#94a3b8">Ancho (mm)</label><input id="b_ancho" type="number" placeholder="opcional"></div>
+        <div><label style="color:#94a3b8">Operario</label><input id="b_oper" list="opers" placeholder="nombre"><datalist id="opers">${(DATA.config.operarios||[]).map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
+      </div>
+      <button class="big-btn" onclick="cargarBobina('${o.id}')">＋ Cargar bobina</button>
+      <button onclick="terminarOrden('${o.id}')" style="width:100%;margin-top:10px;background:none;color:#94a3b8;padding:10px;font-weight:600">Terminar orden</button>
+      ${bobinas.length?`<div style="margin-top:18px"><div style="color:#94a3b8;font-size:13px;margin-bottom:8px;font-weight:600">CARGADAS</div>${bobinas.map(b=>`<div class="bobina-row"><span>${esc(b.peso)} kg ${b.metros?`· ${esc(b.metros)} m`:''}</span><span style="color:#94a3b8">${esc(b.operario||'')} · ${fmtFecha(b.timestamp).split(' ')[1]}</span></div>`).join('')}</div>`:''}
+    </div>
+  </div>`;
+}
+async function cargarBobina(ordenId){
+  const peso=+$('b_peso').value;
+  if(!peso){ toast('Cargá el peso','error'); return; }
+  const o=DATA.ordenes.find(x=>x.id===ordenId);
+  const oper=$('b_oper').value.trim();
+  if(oper&&!DATA.config.operarios.includes(oper)) DATA.config.operarios.push(oper);
+  DATA.producciones.push({ id:uid('bob'), ordenId, maquinaId:o.maquinaId, formato:o.formato, peso, metros:+$('b_metros').value||null, ancho:+$('b_ancho').value||null, operario:oper, timestamp:nowISO(), updatedAt:nowISO() });
+  renderTablet(); await saveData(); toast('Bobina cargada · '+peso+' kg');
+}
+async function terminarOrden(id){
+  if(!confirm('¿Marcar la orden como terminada?')) return;
+  const o=DATA.ordenes.find(x=>x.id===id); o.estadoProduccion='Terminada'; o.updatedAt=nowISO();
+  tabletSessionOrdenId=null; await saveData(); renderTablet();
+}
+
+/* =========================================================
+   ARRANQUE
+   ========================================================= */
+loadData().then(()=>{ /* esperando login */ });
+</script>
+</body>
+</html>
