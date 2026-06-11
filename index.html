@@ -178,7 +178,7 @@ const ESTADOS_PROD = ['Programada','En cola','En producción','Terminada','Cance
 const ESTADOS_DEST = { proceso:['Pendiente','En tránsito','Recibida'], final:['Pendiente','En tránsito','Entregada'] };
 
 const TABS = [
-  ['dashboard','Tablero'], ['ordenes','Órdenes'], ['produccion','Producción'],
+  ['dashboard','Tablero'], ['ordenes','Órdenes'], ['produccion','Producción'], ['stock','Stock'],
   ['cronograma','Cronograma'], ['catalogos','Catálogos'], ['analisis','Análisis'], ['config','Config']
 ];
 
@@ -189,6 +189,7 @@ let DATA = null;
 let currentTab = 'dashboard';
 let currentUser = '';
 let catSub = 'maquinas';
+let stockSub = 'stock';
 let tabletSessionOrdenId = null;
 
 /* =========================================================
@@ -353,7 +354,7 @@ function render(){
   const nav=$('nav');
   nav.innerHTML=TABS.map(([id,lbl])=>`<button class="${id===currentTab?'active':''}" onclick="go('${id}')">${lbl}</button>`).join('');
   const v=$('view');
-  ({dashboard:renderDashboard,ordenes:renderOrdenes,produccion:renderProduccion,cronograma:renderCronograma,catalogos:renderCatalogos,analisis:renderAnalisis,config:renderConfig}[currentTab]||renderDashboard)(v);
+  ({dashboard:renderDashboard,ordenes:renderOrdenes,produccion:renderProduccion,stock:renderStock,cronograma:renderCronograma,catalogos:renderCatalogos,analisis:renderAnalisis,config:renderConfig}[currentTab]||renderDashboard)(v);
 }
 function go(t){ currentTab=t; render(); }
 
@@ -363,6 +364,7 @@ function renderDashboard(v){
   const enCola=ords.filter(o=>o.estadoProduccion==='En cola'||o.estadoProduccion==='Programada');
   const maqCorriendo=new Set(enProd.map(o=>o.maquinaId)).size;
   const kgHoy=DATA.producciones.filter(p=>esHoy(p.timestamp)).reduce((a,p)=>a+(+p.peso||0),0);
+  const kgStockDash=stockKg();
   const porDestino={};
   ords.filter(o=>o.estadoProduccion!=='Terminada'&&o.estadoProduccion!=='Cancelada').forEach(o=>{ porDestino[o.destino]=(porDestino[o.destino]||0)+1; });
 
@@ -374,6 +376,7 @@ function renderDashboard(v){
       <div class="stat"><div class="n">${enCola.length}</div><div class="l">En cola / programadas</div></div>
       <div class="stat"><div class="n">${maqCorriendo}<span style="font-size:16px;color:var(--muted)"> / 2</span></div><div class="l">Máquinas corriendo</div></div>
       <div class="stat"><div class="n">${kgHoy.toLocaleString('es-AR')}<span style="font-size:15px;color:var(--muted)"> kg</span></div><div class="l">Producido hoy</div></div>
+      <div class="stat"><div class="n">${Math.round(kgStockDash).toLocaleString('es-AR')}<span style="font-size:15px;color:var(--muted)"> kg</span></div><div class="l">En stock</div></div>
     </div>
     <div class="card">
       <h3>Máquinas</h3>
@@ -532,11 +535,115 @@ function renderProduccion(v){
     <div class="muted" style="margin-bottom:14px">Bobinas / unidades que cargan los operarios desde la tablet. También se pueden editar acá.</div>
     <div class="card" style="padding:0;overflow-x:auto">
       ${prods.length?`<table>
-        <thead><tr><th>Fecha</th><th>Máquina</th><th>OP</th><th>Formato</th><th>Peso</th><th>Operario</th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Máquina</th><th>OP</th><th>Formato</th><th>Peso</th><th>Operario</th><th>Estado</th></tr></thead>
         <tbody>${prods.map(p=>{ const m=maqById(p.maquinaId), o=DATA.ordenes.find(x=>x.id===p.ordenId);
-          return `<tr><td>${fmtFecha(p.timestamp)}</td><td>${m?`<span class="machine-dot" style="display:inline-block;background:${m.color}"></span> ${esc(m.nombre)}`:'—'}</td><td>${esc(o?.numero||'—')}</td><td>${esc(p.formato||'—')}</td><td><b>${esc(p.peso||0)}</b> kg</td><td>${esc(p.operario||'—')}</td></tr>`; }).join('')}</tbody></table>`
+          return `<tr><td>${fmtFecha(p.timestamp)}</td><td>${m?`<span class="machine-dot" style="display:inline-block;background:${m.color}"></span> ${esc(m.nombre)}`:'—'}</td><td>${esc(o?.numero||'—')}</td><td>${esc(p.formato||'—')}</td><td><b>${esc(p.peso||0)}</b> kg</td><td>${esc(p.operario||'—')}</td><td>${enStock(p)?'<span class="pill" style="background:var(--green-l);color:var(--green-d)">En stock</span>':'<span class="pill" style="background:var(--surface2);color:var(--muted)">'+esc(p.salida?.tipo||'Salida')+'</span>'}</td></tr>`; }).join('')}</tbody></table>`
       :`<div style="padding:40px;text-align:center" class="muted">Sin producción cargada todavía. Las bobinas se cargan desde el <b>Modo Tablet</b>.</div>`}
     </div>`;
+}
+
+/* =========================================================
+   STOCK de extrusión
+   ========================================================= */
+function enStock(p){ return p.estadoStock!=='Salida'; }
+function stockKg(){ return DATA.producciones.filter(enStock).reduce((a,p)=>a+(+p.peso||0),0); }
+
+function renderStock(v){
+  const subs=[['stock','En stock'],['salidas','Salidas']];
+  v.innerHTML=`<h2 style="margin-bottom:12px">Stock de extrusión</h2>
+    <div class="row" style="margin-bottom:16px">${subs.map(([k,l])=>`<button class="${stockSub===k?'btn':'btn-ghost'}" onclick="stockSub='${k}';render()">${l}</button>`).join('')}</div>
+    <div id="stockBody"></div>`;
+  (stockSub==='salidas'?renderSalidas:renderEnStock)(document.getElementById('stockBody'));
+}
+
+function renderEnStock(c){
+  const stock=DATA.producciones.filter(enStock);
+  const totalKg=stock.reduce((a,p)=>a+(+p.peso||0),0);
+  let kgProceso=0,kgFinal=0; const porDestino={}; const byOrden=new Map();
+  stock.forEach(p=>{
+    const o=DATA.ordenes.find(x=>x.id===p.ordenId); const dest=o?o.destino:'Sin orden'; const tipo=DESTINOS[dest]?DESTINOS[dest].tipo:'proceso';
+    if(tipo==='final')kgFinal+=(+p.peso||0); else kgProceso+=(+p.peso||0);
+    porDestino[dest]=(porDestino[dest]||0)+(+p.peso||0);
+    const key=p.ordenId||'sin-orden'; if(!byOrden.has(key))byOrden.set(key,{orden:o,items:[],kg:0}); const g=byOrden.get(key); g.items.push(p); g.kg+=(+p.peso||0);
+  });
+  c.innerHTML=`
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:18px">
+      <div class="stat"><div class="n">${Math.round(totalKg).toLocaleString('es-AR')}<span style="font-size:15px;color:var(--muted)"> kg</span></div><div class="l">Total en stock</div></div>
+      <div class="stat"><div class="n">${stock.length}</div><div class="l">Bobinas / unidades</div></div>
+      <div class="stat"><div class="n">${Math.round(kgProceso).toLocaleString('es-AR')}<span style="font-size:15px;color:var(--muted)"> kg</span></div><div class="l">Para pasar a proceso</div></div>
+      <div class="stat"><div class="n">${Math.round(kgFinal).toLocaleString('es-AR')}<span style="font-size:15px;color:var(--muted)"> kg</span></div><div class="l">Producto final</div></div>
+    </div>
+    ${Object.keys(porDestino).length?`<div class="card"><h3>Por destino</h3><div class="row">${Object.entries(porDestino).map(([d,kg])=>`<div style="border:1px solid var(--border);border-radius:8px;padding:8px 14px"><b style="font-size:16px">${Math.round(kg).toLocaleString('es-AR')} kg</b> <span class="muted" style="font-size:13px">${esc(d)}</span></div>`).join('')}</div></div>`:''}
+    <div class="card" style="padding:0;overflow-x:auto">
+      ${stock.length?`<table>
+        <thead><tr><th>OP</th><th>Producto</th><th>Máquina</th><th>Destino</th><th>En stock</th><th>Kg</th><th></th></tr></thead>
+        <tbody>${[...byOrden.values()].sort((a,b)=>((b.orden&&b.orden.createdAt)||'').localeCompare((a.orden&&a.orden.createdAt)||'')).map(g=>{ const o=g.orden; const m=o?maqById(o.maquinaId):null; const tipo=o&&DESTINOS[o.destino]?DESTINOS[o.destino].tipo:'';
+          return `<tr>
+            <td><b>${esc(o?o.numero:'Sin orden')}</b></td>
+            <td>${esc((o&&o.productoDesc)||'—')}</td>
+            <td>${m?`<span class="machine-chip" style="font-size:12px"><span class="machine-dot" style="background:${m.color}"></span>${esc(m.nombre)}</span>`:'—'}</td>
+            <td>${esc((o&&o.destino)||'—')} ${tipo?`<span class="pill" style="background:${tipo==='final'?'var(--amber-l)':'var(--green-l)'};color:${tipo==='final'?'var(--amber)':'var(--green-d)'}">${tipo==='final'?'final':'proceso'}</span>`:''}</td>
+            <td>${g.items.length}</td>
+            <td><b>${Math.round(g.kg).toLocaleString('es-AR')}</b></td>
+            <td><button class="btn-ghost btn-sm" onclick="openSalidaModal('${o?o.id:'sin-orden'}')">Registrar salida</button></td>
+          </tr>`; }).join('')}</tbody></table>`
+      :`<div style="padding:40px;text-align:center" class="muted">No hay nada en stock. Las bobinas entran al stock a medida que se cargan en Producción.</div>`}
+    </div>`;
+}
+
+function openSalidaModal(ordenId){
+  const real=ordenId&&ordenId!=='sin-orden';
+  const o=real?DATA.ordenes.find(x=>x.id===ordenId):null;
+  const items=DATA.producciones.filter(p=>enStock(p)&&((real&&p.ordenId===ordenId)||(!real&&!p.ordenId)));
+  if(!items.length){ toast('No hay bobinas en stock para esa orden'); return; }
+  const destDefault=o?o.destino:'Uso interno';
+  const tipos=['Laminación','Impresión','Confección','Venta directa','Uso interno','Scrap'];
+  document.getElementById('modalRoot').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">
+    <div style="display:flex;align-items:center;margin-bottom:8px"><h3 style="flex:1">Registrar salida${o?' · '+esc(o.numero):''}</h3><button class="btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="muted" style="font-size:13px;margin-bottom:12px">Marcá las bobinas que salen del stock y a dónde van.</div>
+    <div class="field2">
+      <div><label>Salida hacia</label><select id="sal_tipo">${tipos.map(t=>`<option ${t===destDefault?'selected':''}>${t}</option>`).join('')}</select></div>
+      <div><label>Fecha</label><input id="sal_fecha" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+    </div>
+    <div class="field"><label>Remito / referencia (opcional)</label><input id="sal_ref" placeholder="N° de remito o nota"></div>
+    <div style="margin:10px 0 4px;display:flex;align-items:center;gap:6px"><label style="margin:0;flex:1">Bobinas en stock (${items.length})</label><button class="btn-ghost btn-sm" onclick="toggleAllSalida(true)">Todas</button><button class="btn-ghost btn-sm" onclick="toggleAllSalida(false)">Ninguna</button></div>
+    <div style="max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:8px">
+      <table><tbody>${items.map(p=>`<tr><td style="width:30px"><input type="checkbox" class="sal-chk" value="${p.id}" checked style="width:auto"></td><td>${esc(p.peso)} kg ${p.metros?'· '+esc(p.metros)+' m':''} ${p.formato?'· '+esc(p.formato):''}</td><td class="muted" style="font-size:12px">${fmtFecha(p.timestamp)}</td></tr>`).join('')}</tbody></table>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px"><div style="flex:1"></div><button class="btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn" onclick="confirmSalida()">Registrar salida</button></div>
+  </div></div>`;
+}
+function toggleAllSalida(on){ document.querySelectorAll('.sal-chk').forEach(c=>c.checked=on); }
+async function confirmSalida(){
+  const ids=[...document.querySelectorAll('.sal-chk:checked')].map(c=>c.value);
+  if(!ids.length){ toast('No seleccionaste bobinas','error'); return; }
+  const tipo=document.getElementById('sal_tipo').value, fecha=document.getElementById('sal_fecha').value, ref=document.getElementById('sal_ref').value.trim();
+  DATA.producciones.forEach(p=>{ if(ids.includes(p.id)){ p.estadoStock='Salida'; p.salida={tipo,fecha,ref}; p.updatedAt=nowISO(); } });
+  closeModal(); render(); await saveData(); toast(ids.length+' bobinas dieron salida → '+tipo);
+}
+
+function renderSalidas(c){
+  const out=DATA.producciones.filter(p=>p.estadoStock==='Salida').sort((a,b)=>(((b.salida&&b.salida.fecha)||'')+(b.updatedAt||'')).localeCompare(((a.salida&&a.salida.fecha)||'')+(a.updatedAt||'')));
+  const totalKg=out.reduce((a,p)=>a+(+p.peso||0),0);
+  c.innerHTML=`
+    <div class="muted" style="margin-bottom:12px">${out.length} salida${out.length!==1?'s':''} · ${Math.round(totalKg).toLocaleString('es-AR')} kg fuera de stock</div>
+    <div class="card" style="padding:0;overflow-x:auto">
+      ${out.length?`<table><thead><tr><th>Fecha</th><th>OP</th><th>Hacia</th><th>Detalle</th><th>Kg</th><th></th></tr></thead>
+      <tbody>${out.map(p=>{ const o=DATA.ordenes.find(x=>x.id===p.ordenId); return `<tr>
+        <td>${esc((p.salida&&p.salida.fecha)||'—')}</td>
+        <td>${esc(o?o.numero:'—')}</td>
+        <td><span class="pill" style="background:var(--surface2);color:var(--txt)">${esc((p.salida&&p.salida.tipo)||'—')}</span></td>
+        <td class="muted" style="font-size:12px">${esc(p.formato||'')} ${(p.salida&&p.salida.ref)?'· '+esc(p.salida.ref):''}</td>
+        <td><b>${esc(p.peso)}</b></td>
+        <td><button class="btn-ghost btn-sm" onclick="revertirSalida('${p.id}')">Revertir</button></td>
+      </tr>`; }).join('')}</tbody></table>`
+      :`<div style="padding:40px;text-align:center" class="muted">Todavía no se registraron salidas de stock.</div>`}
+    </div>`;
+}
+async function revertirSalida(id){
+  const p=DATA.producciones.find(x=>x.id===id); if(!p)return;
+  p.estadoStock='En stock'; delete p.salida; p.updatedAt=nowISO();
+  render(); await saveData(); toast('Bobina devuelta al stock');
 }
 
 function renderCronograma(v){
