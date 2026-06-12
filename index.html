@@ -214,7 +214,7 @@ function seedData(){
       { id:'maq-4', nombre:'Extrusora 4', capas:5, tipo:'Hasta 5 capas',kgHora:null, mpCompatibles:[], especificaciones:'', color:'#7c3aed' }
     ],
     materiasPrimas:[],
-    formatos:[ {id:'fmt-bob',nombre:'Bobina'}, {id:'fmt-tubo',nombre:'Tubo'} ],
+    formatos:[ {id:'fmt-lam',nombre:'Bobina lámina'}, {id:'fmt-tubo',nombre:'Bobina tubo'}, {id:'fmt-tuboa',nombre:'Bobina tubo abierto un lado'} ],
     productos:[],
     tiposProducto:[
       { id:'tp-lampe', nombre:'Lámina PE (laminado)', maquinaId:'maq-1', destinoDefault:'Laminación', pesoBobina:20, longitudBobina:1700 },
@@ -241,6 +241,14 @@ function seedData(){
       ['BarielPack','520-600',520,600,45,550,50,550,300,570,50],
       ['BarielPack','520-350',520,350,31,300,50,null,null,null,null]
     ].map((a,i)=>({ id:'rl-'+i, cliente:a[0], producto:a[1], anchoFinal:a[2], espTotal:a[3], pesoBobina:a[4], petEspLam:a[5], peEspLam:a[6], petAncho:a[7], petEsp:a[8], peAncho:a[9], peEsp:a[10], revisar:!!((a[8]&&a[5]!==a[8])||(a[10]&&a[6]!==a[10])||!a[7]||!a[9]) })),
+    clientes:(function(){
+      const cobr=["AVI","Alamenia","Alamenida","Archilli","Argon Pack","Ariel","Arol","Arrolados Artesanales","Arrollados Artesanales","Artola","Arzuray","Bandex","Beraja","CBM Jamones","Canete","Cariati Silvina","Casa natal","Cemave","Ciam","Corradi Beatriz","Cristian","Cuevas","DECA","Daiana","Dario","De bernardi","Deca","Dic wurst","Disbell","Dist Lance","Don Cristian","El araucano","El mataco","El mundo del papel","El polaco","Emabalajdes del litoral","Embaplast","Fabian","Fons","Font","Fonz","Gabriel","Gatti","Gentile","Graciela Juarez","Grinbalt Victor","Grupo 2000","Hector damian Sanchez","Hijos de oscar lujan","Husa","Ibañez","Ignacio","Jorge Parisi","Kiolo","Leopoldo","Marcelo","Marcelo de lobos","Marcos Fridel","Mariano","Mariano Sawidowski","Mariela La vianda","Mariela Ramirez","Martin","Martin casaux","Melquione","Miguel Provoleta","Monsalvo","Monti","Morello","Muniesa","Nieva","Oscar Dulce","Packing Express","Papelera Manapel","Papelera Wilpel","Parisi","Pilar","Roberto (comunidad)","Rotondo","SYB Envases","San Pedro Alimentos","Sebalen","Sebastian","Sturno","Sumo Mendoza","Tadeo.","Tasty food","Trigger","Valenti","Walter","Yeison"];
+      const lam=["Huertas del Pilar","Dantelli","Villa D Agri","Molinos","Mendia","La italiana","Don Yeyo","El Artesano","BarielPack"];
+      const map={};
+      cobr.forEach(n=>{ map[n.toLowerCase()]={nombre:n,categoria:'flexibles'}; });
+      lam.forEach(n=>{ const k=n.toLowerCase(); if(map[k]) map[k].categoria='laminado'; else map[k]={nombre:n,categoria:'laminado'}; });
+      return Object.values(map).map((c,i)=>({ id:'cl-'+i, nombre:c.nombre, categoria:c.categoria, productos:'', notas:'', activo:true }));
+    })(),
     ordenes:[],
     ordenesEliminadas:{},
     ocs:[],
@@ -354,12 +362,13 @@ function migrate(d){
   const s=seedData();
   d.schemaVersion=d.schemaVersion||1;
   d.config=Object.assign({},s.config,d.config||{});
-  ['maquinas','materiasPrimas','formatos','productos','tiposProducto','recetasLaminado','ordenes','ocs','producciones'].forEach(k=>{ if(!Array.isArray(d[k])) d[k]=s[k]; });
+  ['maquinas','materiasPrimas','formatos','productos','tiposProducto','recetasLaminado','clientes','ordenes','ocs','producciones'].forEach(k=>{ if(!Array.isArray(d[k])) d[k]=s[k]; });
   if(!d.ordenesEliminadas) d.ordenesEliminadas={};
   if(!d.ocsEliminadas) d.ocsEliminadas={};
   if(!d.maquinas.length) d.maquinas=s.maquinas;
   if(!d.formatos.length) d.formatos=s.formatos;
   if(!d.recetasLaminado.length) d.recetasLaminado=s.recetasLaminado;
+  if(!d.clientes.length) d.clientes=s.clientes;
   return d;
 }
 
@@ -487,6 +496,7 @@ function calcLaminado(r,kg){
   }
   return {gxmPet,gxmPe,gxmTot,metros,kgPet,kgPe,mbob,nbob,pesoBobPet,pesoBobPe};
 }
+function clientesDatalist(){ return '<datalist id="clientesDatalist">'+(DATA.clientes||[]).map(c=>`<option value="${esc(c.nombre)}"></option>`).join('')+'</datalist>'; }
 function getOCDisplay(oc){
   if(oc.modo==='laminado'){ const r=DATA.recetasLaminado.find(x=>x.id===oc.recetaId); const c=oc.calc;
     return { cliente:oc.cliente||(r?r.cliente:'—'), producto:(r?'Laminado '+r.producto:'Laminado'), maqId:'maq-1', medida:r?`${r.anchoFinal||'?'}×${r.espTotal||'?'}`:'—', bobinas:c?(c.nbob||'—'):'—', kg:oc.kgPedido||0, sub:c?`PET ${Math.round(c.kgPet)} / PE ${Math.round(c.kgPe)} kg`:'' }; }
@@ -504,7 +514,7 @@ function laminadoFormHTML(oc,recs){
 }
 function directoFormHTML(oc,std){
   return `
-    <div class="field"><label>Cliente (opcional)</label><input id="oc_cli" value="${esc(oc.cliente||'')}" placeholder="si lo tenés"></div>
+    <div class="field"><label>Cliente (opcional)</label><input id="oc_cli" list="clientesDatalist" value="${esc(oc.cliente||'')}" placeholder="buscá o escribí">${clientesDatalist()}</div>
     <div class="field"><label>Tipo de producto (define la máquina)</label>
       <select id="oc_tipo" onchange="onOCTipoChange()">${DATA.tiposProducto.length?DATA.tiposProducto.map(t=>{ const m=maqById(t.maquinaId); return `<option value="${t.id}" ${oc.tipoProductoId===t.id?'selected':''}>${esc(t.nombre)} → ${esc(m?m.nombre:'?')}</option>`; }).join(''):'<option value="">(cargá tipos en Catálogos)</option>'}</select>
       <div id="oc_maq" class="muted" style="font-size:12px;margin-top:4px"></div>
@@ -589,7 +599,7 @@ async function generarOP(ocId){
   if(oc.modo==='laminado'){
     const r=DATA.recetasLaminado.find(x=>x.id===oc.recetaId);
     const c=oc.calc||(r?calcLaminado(r,oc.kgPedido||0):null);
-    orden={ id:uid('op'), numero:nextOPNumero(), ot:nextOT('maq-1'), origen:'laminado', cliente:oc.cliente||'', oc:oc.numero||'', maquinaId:'maq-1', formato:'Bobina',
+    orden={ id:uid('op'), numero:nextOPNumero(), ot:nextOT('maq-1'), origen:'laminado', cliente:oc.cliente||'', oc:oc.numero||'', maquinaId:'maq-1', formato:'Bobina lámina',
       productoDesc:`PE ${r?(r.peAncho||''):''}×${r?(r.peEsp||''):''} (lam. ${r?r.cliente:''})`.trim(),
       ancho:r?r.peAncho:null, espesor:r?r.peEsp:null, cantidadBobinas:c?c.nbob:null, cantidadObjetivo:c?Math.round(c.kgPe):(oc.kgPedido||0), unidad:'kg',
       destino:'Laminación', tipoProducto:'proceso', demandaPet:c?Math.round(c.kgPet):null,
@@ -598,7 +608,7 @@ async function generarOP(ocId){
     const tp=DATA.tiposProducto.find(t=>t.id===oc.tipoProductoId);
     const dest=(tp&&tp.destinoDefault)||'Venta directa';
     const origen=dest==='Laminación'?'laminado':(dest==='Uso interno'?'interno':'venta');
-    orden={ id:uid('op'), numero:nextOPNumero(), ot:nextOT(oc.maquinaId), origen, cliente:oc.cliente||'', oc:oc.numero||'', maquinaId:oc.maquinaId, formato:'Bobina', productoDesc:`${tp?tp.nombre:''} ${oc.ancho||''}×${oc.espesor||''}`.trim(), ancho:oc.ancho, espesor:oc.espesor, cantidadBobinas:oc.cantidadBobinas, cantidadObjetivo:oc.kgTotal, unidad:'kg', destino:dest, tipoProducto:DESTINOS[dest]?DESTINOS[dest].tipo:'proceso', estadoProduccion:'Programada', estadoDestino:'Pendiente', ocId:oc.id, creadoPor:currentUser, createdAt:nowISO(), updatedAt:nowISO() };
+    orden={ id:uid('op'), numero:nextOPNumero(), ot:nextOT(oc.maquinaId), origen, cliente:oc.cliente||'', oc:oc.numero||'', maquinaId:oc.maquinaId, formato:'Bobina lámina', productoDesc:`${tp?tp.nombre:''} ${oc.ancho||''}×${oc.espesor||''}`.trim(), ancho:oc.ancho, espesor:oc.espesor, cantidadBobinas:oc.cantidadBobinas, cantidadObjetivo:oc.kgTotal, unidad:'kg', destino:dest, tipoProducto:DESTINOS[dest]?DESTINOS[dest].tipo:'proceso', estadoProduccion:'Programada', estadoDestino:'Pendiente', ocId:oc.id, creadoPor:currentUser, createdAt:nowISO(), updatedAt:nowISO() };
   }
   DATA.ordenes.push(orden); oc.estado='En OP'; oc.ordenId=orden.id; oc.updatedAt=nowISO();
   await saveData(); toast('OP '+orden.numero+' generada desde '+oc.numero); currentTab='ordenes'; render();
@@ -657,6 +667,36 @@ async function setReceta(id,k,val){ const r=DATA.recetasLaminado.find(x=>x.id===
 async function addReceta(){ const v=document.getElementById('newReceta').value.trim(); if(!v)return; DATA.recetasLaminado.push({id:uid('rl'),cliente:v,producto:'',anchoFinal:null,espTotal:null,pesoBobina:DATA.config.pesoBobinaStd||20,petEspLam:null,peEspLam:null,petAncho:null,petEsp:null,peAncho:null,peEsp:null,revisar:true}); render(); await saveData(); }
 async function delReceta(id){ if(!confirm('¿Eliminar esta receta?'))return; DATA.recetasLaminado=DATA.recetasLaminado.filter(x=>x.id!==id); render(); await saveData(); }
 
+function renderCatClientes(c){
+  c.innerHTML=`<div class="card">
+    <div class="row" style="margin-bottom:10px;align-items:center;gap:8px">
+      <input id="cliSearch" placeholder="Buscar cliente..." oninput="filtraClientes()" style="flex:1">
+      <select id="cliCat" onchange="filtraClientes()" style="width:140px"><option value="">Todas</option><option>flexibles</option><option>laminado</option><option>otro</option></select>
+    </div>
+    <div class="muted" style="font-size:12px;margin-bottom:8px" id="cliCount"></div>
+    <div style="overflow-x:auto"><table style="font-size:13px"><thead><tr><th>Nombre</th><th>Categoría</th><th>Productos / medidas</th><th>Notas</th><th></th></tr></thead><tbody id="cliBody"></tbody></table></div>
+    <div class="row" style="margin-top:10px"><input id="newCli" placeholder="Nuevo cliente" style="flex:1" onkeydown="if(event.key==='Enter')addCliente()"><button class="btn" onclick="addCliente()">＋ Cliente</button></div>
+  </div>`;
+  filtraClientes();
+}
+function filtraClientes(){
+  const q=($('cliSearch')?$('cliSearch').value:'').toLowerCase();
+  const cat=$('cliCat')?$('cliCat').value:'';
+  const all=DATA.clientes||[];
+  const rows=all.filter(x=>(!q||(x.nombre||'').toLowerCase().includes(q))&&(!cat||x.categoria===cat));
+  if($('cliCount')) $('cliCount').textContent=`${rows.length} de ${all.length} clientes`;
+  if($('cliBody')) $('cliBody').innerHTML=rows.map(x=>`<tr>
+    <td><input value="${esc(x.nombre||'')}" onchange="setCliente('${x.id}','nombre',this.value)" style="width:150px;padding:4px"></td>
+    <td><select onchange="setCliente('${x.id}','categoria',this.value)">${['flexibles','laminado','otro'].map(k=>`<option ${x.categoria===k?'selected':''}>${k}</option>`).join('')}</select></td>
+    <td><input value="${esc(x.productos||'')}" onchange="setCliente('${x.id}','productos',this.value)" placeholder="medidas, tipo de producto..." style="width:190px;padding:4px"></td>
+    <td><input value="${esc(x.notas||'')}" onchange="setCliente('${x.id}','notas',this.value)" style="width:140px;padding:4px"></td>
+    <td><button class="btn-ghost btn-sm" onclick="delCliente('${x.id}')">✕</button></td>
+  </tr>`).join('');
+}
+async function setCliente(id,k,v){ const x=DATA.clientes.find(c=>c.id===id); if(x){ x[k]=v; await saveData(); } }
+async function addCliente(){ const v=$('newCli').value.trim(); if(!v)return; DATA.clientes.push({id:uid('cl'),nombre:v,categoria:'otro',productos:'',notas:'',activo:true}); $('newCli').value=''; filtraClientes(); await saveData(); }
+async function delCliente(id){ if(!confirm('¿Eliminar este cliente?'))return; DATA.clientes=DATA.clientes.filter(c=>c.id!==id); filtraClientes(); await saveData(); }
+
 function renderOrdenes(v){
   const ords=[...DATA.ordenes].sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
   v.innerHTML=`
@@ -684,7 +724,7 @@ function renderOrdenes(v){
 
 function openOrdenModal(id){
   const ed=id?DATA.ordenes.find(o=>o.id===id):null;
-  const o=ed||{ origen:'laminado', destino:'Laminación', formato:'Bobina', unidad:'kg', estadoProduccion:'Programada', estadoDestino:'Pendiente' };
+  const o=ed||{ origen:'laminado', destino:'Laminación', formato:'Bobina lámina', unidad:'kg', estadoProduccion:'Programada', estadoDestino:'Pendiente' };
   const orig=ORIGENES[o.origen];
   const tipo=DESTINOS[o.destino]?.tipo||'proceso';
   const root=$('modalRoot');
@@ -699,7 +739,7 @@ function openOrdenModal(id){
     <div class="field"><label>Orden de trabajo (OT)</label><input id="o_ot" value="${esc(o.ot||'')}" placeholder="se autogenera al guardar"></div>
 
     <div id="o_ocWrap" class="field2" style="${orig.requiereOC?'':'display:none'}">
-      <div><label>Cliente</label><input id="o_cliente" value="${esc(o.cliente||'')}" placeholder="Ej: Molinos / Don Yeyo"></div>
+      <div><label>Cliente</label><input id="o_cliente" list="clientesDatalist" value="${esc(o.cliente||'')}" placeholder="buscá o escribí">${clientesDatalist()}</div>
       <div><label>OC del cliente</label><input id="o_oc" value="${esc(o.oc||'')}" placeholder="N° de OC"></div>
     </div>
     <div id="o_vendWrap" class="field" style="${o.origen==='venta'?'':'display:none'}"><label>Vendedor</label><input id="o_vend" value="${esc(o.vendedor||'Enrique')}"></div>
@@ -987,11 +1027,11 @@ function renderAnalisis(v){
    CATÁLOGOS
    ========================================================= */
 function renderCatalogos(v){
-  const subs=[['maquinas','Máquinas'],['tipos','Tipos de producto'],['recetas','Recetas laminado'],['mp','Materias primas'],['formatos','Formatos'],['productos','Productos']];
+  const subs=[['maquinas','Máquinas'],['tipos','Tipos de producto'],['recetas','Recetas laminado'],['clientes','Clientes'],['mp','Materias primas'],['formatos','Formatos'],['productos','Productos']];
   v.innerHTML=`<h2 style="margin-bottom:12px">Catálogos</h2>
     <div class="row" style="margin-bottom:16px">${subs.map(([k,l])=>`<button class="${catSub===k?'btn':'btn-ghost'}" onclick="catSub='${k}';render()">${l}</button>`).join('')}</div>
     <div id="catBody"></div>`;
-  ({maquinas:renderCatMaquinas,tipos:renderCatTipos,recetas:renderCatRecetas,mp:renderCatMP,formatos:renderCatFormatos,productos:renderCatProductos}[catSub])($('catBody'));
+  ({maquinas:renderCatMaquinas,tipos:renderCatTipos,recetas:renderCatRecetas,clientes:renderCatClientes,mp:renderCatMP,formatos:renderCatFormatos,productos:renderCatProductos}[catSub])($('catBody'));
 }
 
 function renderCatMaquinas(c){
