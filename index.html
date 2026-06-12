@@ -178,7 +178,7 @@ const ESTADOS_PROD = ['Programada','En cola','En producción','Terminada','Cance
 const ESTADOS_DEST = { proceso:['Pendiente','En tránsito','Recibida'], final:['Pendiente','En tránsito','Entregada'] };
 
 const TABS = [
-  ['dashboard','Tablero'], ['ordenes','Órdenes'], ['produccion','Producción'], ['stock','Stock'],
+  ['dashboard','Tablero'], ['pedidos','Pedidos'], ['ordenes','Órdenes'], ['produccion','Producción'], ['stock','Stock'],
   ['cronograma','Cronograma'], ['catalogos','Catálogos'], ['analisis','Análisis'], ['config','Config']
 ];
 
@@ -190,6 +190,8 @@ let currentTab = 'dashboard';
 let currentUser = '';
 let catSub = 'maquinas';
 let stockSub = 'stock';
+let recetaFilter = false;
+let currentRole = 'admin';
 let tabletSessionOrdenId = null;
 
 /* =========================================================
@@ -200,8 +202,10 @@ function seedData(){
     schemaVersion:1,
     config:{
       planta:'Winflex Lanús — Extrusión',
-      pins:{ '1540':'Matías', '3080':'Jonathan', '0104':'Mirta', '0035':'Agustín', '7070':'Horacio' },
-      operarios:[]
+      pins:{ '1540':{nombre:'Matías',rol:'admin'}, '3080':{nombre:'Jonathan',rol:'admin'}, '0104':{nombre:'Mirta',rol:'supervisor'}, '0035':{nombre:'Agustín',rol:'admin'}, '7070':{nombre:'Horacio',rol:'operario'} },
+      operarios:[],
+      pesoBobinaStd:20,
+      densPET:1.38, densPE:0.92
     },
     maquinas:[
       { id:'maq-1', nombre:'Extrusora 1', capas:1, tipo:'Monocapa',     kgHora:null, mpCompatibles:[], especificaciones:'', color:'#16a34a' },
@@ -212,8 +216,35 @@ function seedData(){
     materiasPrimas:[],
     formatos:[ {id:'fmt-bob',nombre:'Bobina'}, {id:'fmt-tubo',nombre:'Tubo'} ],
     productos:[],
+    tiposProducto:[
+      { id:'tp-lampe', nombre:'Lámina PE (laminado)', maquinaId:'maq-1', destinoDefault:'Laminación', pesoBobina:20, longitudBobina:1700 },
+      { id:'tp-barrera', nombre:'Film barrera 3 capas', maquinaId:'maq-3', destinoDefault:'Venta directa', pesoBobina:20, longitudBobina:null }
+    ],
+    recetasLaminado:[
+      ['Huertas del Pilar','200',200,450,25,400,50,430,400,450,50],
+      ['Dantelli','357-C',357,350,30,300,50,380,300,400,50],
+      ['Dantelli','357-N',357,350,30,300,50,380,300,400,50],
+      ['Dantelli','323',323,350,30,300,50,350,300,370,50],
+      ['Villa D Agri','423',423,280,83,230,50,450,230,470,50],
+      ['Villa D Agri','323',323,280,35,280,50,350,280,370,50],
+      ['Molinos','421-500',421,500,25,450,50,450,450,470,50],
+      ['Molinos','421-400',421,400,30,350,50,500,200,530,35],
+      ['Molinos','421-300',421,300,35,250,50,450,250,470,50],
+      ['Molinos','472',472,235,40,200,35,450,350,470,50],
+      ['Mendia','312',312,300,31,250,50,350,250,370,50],
+      ['La italiana','421-350',421,350,80,300,50,450,300,470,50],
+      ['La italiana','421-500',421,500,80,450,50,450,450,470,50],
+      ['Don Yeyo','321',321,300,35,250,50,350,250,370,50],
+      ['Don Yeyo','642',642,300,35,250,50,450,200,470,35],
+      ['El Artesano','300',422,235,25,200,35,550,350,570,50],
+      ['BarielPack','520-400',520,400,31,350,50,550,550,570,50],
+      ['BarielPack','520-600',520,600,45,550,50,550,300,570,50],
+      ['BarielPack','520-350',520,350,31,300,50,null,null,null,null]
+    ].map((a,i)=>({ id:'rl-'+i, cliente:a[0], producto:a[1], anchoFinal:a[2], espTotal:a[3], pesoBobina:a[4], petEspLam:a[5], peEspLam:a[6], petAncho:a[7], petEsp:a[8], peAncho:a[9], peEsp:a[10], revisar:!!((a[8]&&a[5]!==a[8])||(a[10]&&a[6]!==a[10])||!a[7]||!a[9]) })),
     ordenes:[],
     ordenesEliminadas:{},
+    ocs:[],
+    ocsEliminadas:{},
     producciones:[],
     lastUpdate:new Date().toISOString()
   };
@@ -304,7 +335,9 @@ async function saveData(){
     const merged=JSON.parse(JSON.stringify(DATA)); // catálogos + config del LOCAL
     merged.ordenesEliminadas=mergeTombstones(remote.ordenesEliminadas,DATA.ordenesEliminadas);
     merged.ordenes=aplicarTombstones(mergeById(remote.ordenes,DATA.ordenes),merged.ordenesEliminadas);
-    merged.producciones=mergeById(remote.producciones,DATA.producciones); // tablet + portal sin pisar
+    merged.producciones=mergeById(remote.producciones,DATA.producciones);
+    merged.ocsEliminadas=mergeTombstones(remote.ocsEliminadas,DATA.ocsEliminadas);
+    merged.ocs=aplicarTombstones(mergeById(remote.ocs,DATA.ocs),merged.ocsEliminadas); // tablet + portal sin pisar
     merged.lastUpdate=nowISO();
     const content=JSON.stringify(merged);
     const r=await fetch('https://api.github.com/gists/'+creds.gistId,{
@@ -321,10 +354,12 @@ function migrate(d){
   const s=seedData();
   d.schemaVersion=d.schemaVersion||1;
   d.config=Object.assign({},s.config,d.config||{});
-  ['maquinas','materiasPrimas','formatos','productos','ordenes','producciones'].forEach(k=>{ if(!Array.isArray(d[k])) d[k]=s[k]; });
+  ['maquinas','materiasPrimas','formatos','productos','tiposProducto','recetasLaminado','ordenes','ocs','producciones'].forEach(k=>{ if(!Array.isArray(d[k])) d[k]=s[k]; });
   if(!d.ordenesEliminadas) d.ordenesEliminadas={};
+  if(!d.ocsEliminadas) d.ocsEliminadas={};
   if(!d.maquinas.length) d.maquinas=s.maquinas;
   if(!d.formatos.length) d.formatos=s.formatos;
+  if(!d.recetasLaminado.length) d.recetasLaminado=s.recetasLaminado;
   return d;
 }
 
@@ -340,8 +375,8 @@ async function createGist(token){
    ========================================================= */
 function doLogin(){
   const pin=$('pinInput').value.trim();
-  const name=(DATA&&DATA.config.pins[pin])||null;
-  if(name){ currentUser=name; $('loginErr').textContent=''; $('login').classList.add('hidden'); $('app').classList.remove('hidden'); render(); }
+  const entry=DATA&&DATA.config.pins[pin];
+  if(entry){ currentUser=pinName(entry); currentRole=pinRol(entry); $('loginErr').textContent=''; $('login').classList.add('hidden'); $('app').classList.remove('hidden'); render(); }
   else { $('loginErr').textContent='PIN incorrecto'; $('pinInput').value=''; }
 }
 function logout(){ currentUser=''; $('app').classList.add('hidden'); $('tablet').classList.add('hidden'); $('login').classList.remove('hidden'); $('pinInput').value=''; }
@@ -350,11 +385,17 @@ $('pinInput')&&$('pinInput').addEventListener('keydown',e=>{ if(e.key==='Enter')
 /* =========================================================
    RENDER PORTAL
    ========================================================= */
+const ROL_TABS={ operario:['dashboard','produccion','stock'], supervisor:['dashboard','pedidos','ordenes','produccion','stock'], admin:null };
+function pinName(v){ return typeof v==='string'?v:(v&&v.nombre)||''; }
+function pinRol(v){ return typeof v==='string'?'admin':((v&&v.rol)||'admin'); }
 function render(){
+  const allowed=ROL_TABS[currentRole];
+  if(allowed && !allowed.includes(currentTab)) currentTab=allowed[0];
+  const tabs=allowed?TABS.filter(([id])=>allowed.includes(id)):TABS;
   const nav=$('nav');
-  nav.innerHTML=TABS.map(([id,lbl])=>`<button class="${id===currentTab?'active':''}" onclick="go('${id}')">${lbl}</button>`).join('');
+  nav.innerHTML=tabs.map(([id,lbl])=>`<button class="${id===currentTab?'active':''}" onclick="go('${id}')">${lbl}</button>`).join('');
   const v=$('view');
-  ({dashboard:renderDashboard,ordenes:renderOrdenes,produccion:renderProduccion,stock:renderStock,cronograma:renderCronograma,catalogos:renderCatalogos,analisis:renderAnalisis,config:renderConfig}[currentTab]||renderDashboard)(v);
+  ({dashboard:renderDashboard,pedidos:renderPedidos,ordenes:renderOrdenes,produccion:renderProduccion,stock:renderStock,cronograma:renderCronograma,catalogos:renderCatalogos,analisis:renderAnalisis,config:renderConfig}[currentTab]||renderDashboard)(v);
 }
 function go(t){ currentTab=t; render(); }
 
@@ -397,6 +438,225 @@ function renderDashboard(v){
 
 function pillEstadoProd(e){ const c={'En producción':['var(--green-l)','var(--green-d)'],'En cola':['var(--amber-l)','var(--amber)'],'Programada':['var(--surface2)','var(--muted)'],'Terminada':['var(--blue-l)','var(--blue)'],'Cancelada':['var(--red-l)','var(--red)']}[e]||['var(--surface2)','var(--muted)']; return `<span class="pill" style="background:${c[0]};color:${c[1]}">${esc(e)}</span>`; }
 
+/* =========================================================
+   PEDIDOS / OC  (disparador de OPs)
+   ========================================================= */
+function nextOCNumero(){ return 'OC-'+String((DATA.ocs?DATA.ocs.length:0)+1).padStart(4,'0'); }
+function nextOT(maqId){ const mm=maqId&&maqId.match(/(\d+)/); const n=mm?mm[1]:'X'; return n+'-'+(46174+DATA.ordenes.length); }
+function ocEstadoPill(oc){ const e=oc.estado||'Pendiente'; const c={'Pendiente':['var(--amber-l)','var(--amber)'],'En OP':['var(--blue-l)','var(--blue)'],'Producida':['var(--green-l)','var(--green-d)']}[e]||['var(--surface2)','var(--muted)']; return `<span class="pill" style="background:${c[0]};color:${c[1]}">${esc(e)}</span>`; }
+
+function renderPedidos(v){
+  const ocs=[...DATA.ocs].sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+  v.innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+      <h2 style="flex:1">Pedidos / OC</h2>
+      <button class="btn" onclick="openOCModal()">＋ Nueva OC</button>
+    </div>
+    <div class="muted" style="margin-bottom:14px">El tipo de producto define la máquina. Los kg se estiman como bobinas × peso estándar (${DATA.config.pesoBobinaStd||20} kg). Desde acá generás la OP.</div>
+    <div class="card" style="padding:0;overflow-x:auto">
+      ${ocs.length?`<table>
+        <thead><tr><th>OC</th><th>Cliente</th><th>Producto / Máquina</th><th>Medida</th><th>Bobinas</th><th>Kg aprox</th><th>Estado</th><th></th></tr></thead>
+        <tbody>${ocs.map(oc=>{ const d=getOCDisplay(oc); const m=maqById(d.maqId);
+          return `<tr>
+            <td><b>${esc(oc.numero)}</b><div class="muted" style="font-size:11px">${oc.modo==='laminado'?'Laminado':'Directo'} · ${fmtFecha(oc.createdAt)}</div></td>
+            <td>${esc(d.cliente)}</td>
+            <td>${esc(d.producto)}${m?`<div class="machine-chip" style="font-size:11px;margin-top:2px"><span class="machine-dot" style="background:${m.color}"></span>${esc(m.nombre)}</div>`:''}</td>
+            <td>${esc(d.medida)}</td>
+            <td>${esc(d.bobinas)}</td>
+            <td><b>${Math.round(d.kg).toLocaleString('es-AR')}</b> kg${d.sub?`<div class="muted" style="font-size:11px">${esc(d.sub)}</div>`:''}</td>
+            <td>${ocEstadoPill(oc)}</td>
+            <td style="white-space:nowrap"><button class="btn-ghost btn-sm" onclick="openOCModal('${oc.id}')">Ver</button> ${oc.ordenId?`<span class="pill" style="background:var(--green-l);color:var(--green-d)">OP ✓</span>`:`<button class="btn btn-sm" onclick="generarOP('${oc.id}')">Generar OP</button>`}</td>
+          </tr>`; }).join('')}</tbody></table>`
+      :`<div style="padding:40px;text-align:center" class="muted">No hay pedidos cargados. Apretá <b>Nueva OC</b> para empezar.</div>`}
+    </div>`;
+}
+
+let _ocModo='laminado';
+let _ocEditId=null;
+function calcLaminado(r,kg){
+  const dPet=DATA.config.densPET||1.38, dPe=DATA.config.densPE||0.92;
+  const gxmPet=(r.anchoFinal/10)*(r.petEspLam*1e-4)*dPet*100;
+  const gxmPe=(r.anchoFinal/10)*(r.peEspLam*1e-4)*dPe*100;
+  const gxmTot=gxmPet+gxmPe;
+  const metros=gxmTot>0?(kg*1000)/gxmTot:0;
+  const kgPet=gxmPet*metros/1000, kgPe=gxmPe*metros/1000;
+  let mbob=null,nbob=null,pesoBobPet=null,pesoBobPe=null;
+  if(r.pesoBobina&&gxmTot>0){ mbob=r.pesoBobina*1000/gxmTot; nbob=Math.ceil(metros/mbob);
+    if(r.petAncho&&r.petEsp){ const g=(r.petAncho/10)*(r.petEsp*1e-4)*dPet*100; pesoBobPet=g*mbob/1000; }
+    if(r.peAncho&&r.peEsp){ const g=(r.peAncho/10)*(r.peEsp*1e-4)*dPe*100; pesoBobPe=g*mbob/1000; }
+  }
+  return {gxmPet,gxmPe,gxmTot,metros,kgPet,kgPe,mbob,nbob,pesoBobPet,pesoBobPe};
+}
+function getOCDisplay(oc){
+  if(oc.modo==='laminado'){ const r=DATA.recetasLaminado.find(x=>x.id===oc.recetaId); const c=oc.calc;
+    return { cliente:oc.cliente||(r?r.cliente:'—'), producto:(r?'Laminado '+r.producto:'Laminado'), maqId:'maq-1', medida:r?`${r.anchoFinal||'?'}×${r.espTotal||'?'}`:'—', bobinas:c?(c.nbob||'—'):'—', kg:oc.kgPedido||0, sub:c?`PET ${Math.round(c.kgPet)} / PE ${Math.round(c.kgPe)} kg`:'' }; }
+  const tp=DATA.tiposProducto.find(t=>t.id===oc.tipoProductoId);
+  return { cliente:oc.cliente||'—', producto:tp?tp.nombre:'—', maqId:oc.maquinaId, medida:`${oc.ancho||'?'}×${oc.espesor||'?'}`, bobinas:oc.cantidadBobinas||0, kg:oc.kgTotal||0, sub:'' };
+}
+function laminadoFormHTML(oc,recs){
+  return `
+    <div class="field"><label>Receta (cliente · producto)</label>
+      <select id="oc_receta" onchange="onOCRecetaChange()">${recs.length?recs.map(r=>`<option value="${r.id}" ${oc.recetaId===r.id?'selected':''}>${esc(r.cliente)} (${esc(r.producto)}) · ${r.anchoFinal||'?'}×${r.espTotal||'?'}${r.revisar?' ⚠':''}</option>`).join(''):'<option value="">(cargá recetas en Catálogos)</option>'}</select>
+      <div id="oc_recInfo" class="muted" style="font-size:12px;margin-top:4px"></div>
+    </div>
+    <div class="field"><label>Kg del pedido (laminado)</label><input id="oc_kgped" type="number" value="${oc.kgPedido||''}" oninput="recalcOCLam()" placeholder="kg de laminado solicitados"></div>
+    <div class="card" id="oc_lamRes" style="background:var(--bg);padding:14px;margin-bottom:12px"></div>`;
+}
+function directoFormHTML(oc,std){
+  return `
+    <div class="field"><label>Cliente (opcional)</label><input id="oc_cli" value="${esc(oc.cliente||'')}" placeholder="si lo tenés"></div>
+    <div class="field"><label>Tipo de producto (define la máquina)</label>
+      <select id="oc_tipo" onchange="onOCTipoChange()">${DATA.tiposProducto.length?DATA.tiposProducto.map(t=>{ const m=maqById(t.maquinaId); return `<option value="${t.id}" ${oc.tipoProductoId===t.id?'selected':''}>${esc(t.nombre)} → ${esc(m?m.nombre:'?')}</option>`; }).join(''):'<option value="">(cargá tipos en Catálogos)</option>'}</select>
+      <div id="oc_maq" class="muted" style="font-size:12px;margin-top:4px"></div>
+    </div>
+    <div class="field2"><div><label>Ancho (mm)</label><input id="oc_ancho" type="number" value="${oc.ancho||''}"></div><div><label>Espesor (µ)</label><input id="oc_esp" type="number" value="${oc.espesor||''}"></div></div>
+    <div class="field2"><div><label>Cantidad de bobinas</label><input id="oc_bob" type="number" value="${oc.cantidadBobinas||''}" oninput="recalcOC()"></div><div><label>Kg por bobina (estándar)</label><input id="oc_peso" type="number" value="${oc.pesoPorBobina||std}" oninput="recalcOC()"></div></div>
+    <div class="card" style="background:var(--green-l);border-color:var(--green);margin:4px 0 12px;padding:12px 16px"><b style="font-size:20px" id="oc_kg">0</b> <span class="muted">kg totales aproximados</span></div>`;
+}
+function openOCModal(id, modoForce){
+  const ed=id?DATA.ocs.find(o=>o.id===id):null;
+  _ocEditId=id||null;
+  const std=DATA.config.pesoBobinaStd||20;
+  const oc=ed||{ fecha:new Date().toISOString().slice(0,10) };
+  const modo=modoForce||(ed?ed.modo:null)||'laminado';
+  const recs=DATA.recetasLaminado||[];
+  const body= modo==='laminado'?laminadoFormHTML(oc,recs):directoFormHTML(oc,std);
+  document.getElementById('modalRoot').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">
+    <div style="display:flex;align-items:center;margin-bottom:14px"><h3 style="flex:1">${ed?'OC '+esc(ed.numero):'Nueva OC'}</h3><button class="btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="row" style="margin-bottom:14px"><button class="${modo==='laminado'?'btn':'btn-ghost'}" onclick="setOCModo('laminado')">Laminado PET/PE</button><button class="${modo==='directo'?'btn':'btn-ghost'}" onclick="setOCModo('directo')">Directo (venta/interno)</button></div>
+    <input type="hidden" id="oc_modo" value="${modo}">
+    <div class="field2"><div><label>N° OC (editable)</label><input id="oc_num" value="${esc(ed?ed.numero:nextOCNumero())}"></div><div><label>Fecha</label><input id="oc_fecha" type="date" value="${esc(oc.fecha||new Date().toISOString().slice(0,10))}"></div></div>
+    ${body}
+    <div class="field"><label>Notas</label><textarea id="oc_notas" rows="2">${esc(oc.notas||'')}</textarea></div>
+    <div style="display:flex;gap:10px;margin-top:6px">${ed?`<button class="btn-danger" onclick="borrarOC('${ed.id}')">Eliminar</button>`:''}<div style="flex:1"></div><button class="btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn" onclick="guardarOC('${ed?ed.id:''}')">${ed?'Guardar':'Crear OC'}</button></div>
+  </div></div>`;
+  if(modo==='laminado') onOCRecetaChange(); else { onOCTipoChange(); recalcOC(); }
+}
+function setOCModo(m){ openOCModal(_ocEditId, m); }
+function onOCTipoChange(){
+  const el=document.getElementById('oc_tipo'); if(!el) return;
+  const t=DATA.tiposProducto.find(x=>x.id===el.value); const m=t?maqById(t.maquinaId):null;
+  document.getElementById('oc_maq').innerHTML=m?`Máquina: <b>${esc(m.nombre)}</b> · ${esc(m.tipo)} (${m.capas} capa${m.capas>1?'s':''})`:'';
+}
+function recalcOC(){ const be=document.getElementById('oc_bob'); if(!be)return; const b=+be.value||0, p=+document.getElementById('oc_peso').value||0; document.getElementById('oc_kg').textContent=Math.round(b*p).toLocaleString('es-AR'); }
+function onOCRecetaChange(){
+  const sel=document.getElementById('oc_receta'); if(!sel) return;
+  const r=DATA.recetasLaminado.find(x=>x.id===sel.value);
+  const info=document.getElementById('oc_recInfo');
+  if(info) info.innerHTML=r?`Laminado ${r.anchoFinal}×${r.espTotal} · PET ${r.petEspLam}µ + PE ${r.peEspLam}µ · bobina madre PE ${r.peAncho||'?'}×${r.peEsp||'?'} → MAQ1${r.revisar?' · <span style="color:var(--amber)">⚠ revisar receta</span>':''}`:'';
+  recalcOCLam();
+}
+function recalcOCLam(){
+  const sel=document.getElementById('oc_receta'); if(!sel) return;
+  const r=DATA.recetasLaminado.find(x=>x.id===sel.value);
+  const kg=+document.getElementById('oc_kgped').value||0;
+  const box=document.getElementById('oc_lamRes'); if(!box) return;
+  if(!r||!kg){ box.innerHTML='<span class="muted">Elegí receta y kg para ver el cálculo.</span>'; return; }
+  const c=calcLaminado(r,kg);
+  box.innerHTML=`
+    <div class="grid" style="grid-template-columns:1fr 1fr;gap:8px 16px;font-size:13px">
+      <div><span class="muted">Metros:</span> <b>${Math.round(c.metros).toLocaleString('es-AR')} m</b></div>
+      <div><span class="muted">Bobinas:</span> <b>${c.nbob||'—'}</b></div>
+      <div><span class="muted">Kg PET (Chivilcoy):</span> <b style="color:var(--blue)">${Math.round(c.kgPet).toLocaleString('es-AR')}</b></div>
+      <div><span class="muted">Kg PE (MAQ1):</span> <b style="color:var(--green-d)">${Math.round(c.kgPe).toLocaleString('es-AR')}</b></div>
+      <div><span class="muted">Peso bob. PET:</span> <b>${c.pesoBobPet?c.pesoBobPet.toFixed(1):'—'} kg</b></div>
+      <div><span class="muted">Peso bob. PE:</span> <b>${c.pesoBobPe?c.pesoBobPe.toFixed(1):'—'} kg</b></div>
+    </div>
+    <div class="muted" style="font-size:11px;margin-top:8px">El PET (${Math.round(c.kgPet).toLocaleString('es-AR')} kg) es informativo — lo produce Chivilcoy. La OP que se genera es la del PE para la MAQ1.</div>`;
+}
+async function guardarOC(id){
+  const modo=document.getElementById('oc_modo').value;
+  const base={ numero:document.getElementById('oc_num').value.trim()||nextOCNumero(), fecha:document.getElementById('oc_fecha').value, notas:document.getElementById('oc_notas').value.trim(), modo, updatedAt:nowISO() };
+  let obj;
+  if(modo==='laminado'){
+    const r=DATA.recetasLaminado.find(x=>x.id===document.getElementById('oc_receta').value);
+    const kg=+document.getElementById('oc_kgped').value||0;
+    obj=Object.assign(base,{ recetaId:r?r.id:null, cliente:r?r.cliente:'', maquinaId:'maq-1', kgPedido:kg, kgTotal:kg, calc:r?calcLaminado(r,kg):null });
+  } else {
+    const tp=DATA.tiposProducto.find(t=>t.id===document.getElementById('oc_tipo').value);
+    const bob=+document.getElementById('oc_bob').value||0, peso=+document.getElementById('oc_peso').value||(DATA.config.pesoBobinaStd||20);
+    obj=Object.assign(base,{ cliente:document.getElementById('oc_cli').value.trim(), tipoProductoId:tp?tp.id:null, maquinaId:tp?tp.maquinaId:null, ancho:+document.getElementById('oc_ancho').value||null, espesor:+document.getElementById('oc_esp').value||null, cantidadBobinas:bob, pesoPorBobina:peso, kgTotal:bob*peso });
+  }
+  if(id){ Object.assign(DATA.ocs.find(o=>o.id===id),obj); }
+  else { Object.assign(obj,{ id:uid('oc'), estado:'Pendiente', creadoPor:currentUser, createdAt:nowISO() }); DATA.ocs.push(obj); }
+  closeModal(); render(); await saveData(); toast('OC guardada');
+}
+async function borrarOC(id){ if(!confirm('¿Eliminar esta OC?'))return; DATA.ocs=DATA.ocs.filter(o=>o.id!==id); DATA.ocsEliminadas[id]=nowISO(); closeModal(); render(); await saveData(); toast('OC eliminada'); }
+async function generarOP(ocId){
+  const oc=DATA.ocs.find(o=>o.id===ocId); if(!oc)return;
+  if(oc.ordenId){ toast('Esta OC ya tiene OP'); return; }
+  let orden;
+  if(oc.modo==='laminado'){
+    const r=DATA.recetasLaminado.find(x=>x.id===oc.recetaId);
+    const c=oc.calc||(r?calcLaminado(r,oc.kgPedido||0):null);
+    orden={ id:uid('op'), numero:nextOPNumero(), ot:nextOT('maq-1'), origen:'laminado', cliente:oc.cliente||'', oc:oc.numero||'', maquinaId:'maq-1', formato:'Bobina',
+      productoDesc:`PE ${r?(r.peAncho||''):''}×${r?(r.peEsp||''):''} (lam. ${r?r.cliente:''})`.trim(),
+      ancho:r?r.peAncho:null, espesor:r?r.peEsp:null, cantidadBobinas:c?c.nbob:null, cantidadObjetivo:c?Math.round(c.kgPe):(oc.kgPedido||0), unidad:'kg',
+      destino:'Laminación', tipoProducto:'proceso', demandaPet:c?Math.round(c.kgPet):null,
+      estadoProduccion:'Programada', estadoDestino:'Pendiente', ocId:oc.id, creadoPor:currentUser, createdAt:nowISO(), updatedAt:nowISO() };
+  } else {
+    const tp=DATA.tiposProducto.find(t=>t.id===oc.tipoProductoId);
+    const dest=(tp&&tp.destinoDefault)||'Venta directa';
+    const origen=dest==='Laminación'?'laminado':(dest==='Uso interno'?'interno':'venta');
+    orden={ id:uid('op'), numero:nextOPNumero(), ot:nextOT(oc.maquinaId), origen, cliente:oc.cliente||'', oc:oc.numero||'', maquinaId:oc.maquinaId, formato:'Bobina', productoDesc:`${tp?tp.nombre:''} ${oc.ancho||''}×${oc.espesor||''}`.trim(), ancho:oc.ancho, espesor:oc.espesor, cantidadBobinas:oc.cantidadBobinas, cantidadObjetivo:oc.kgTotal, unidad:'kg', destino:dest, tipoProducto:DESTINOS[dest]?DESTINOS[dest].tipo:'proceso', estadoProduccion:'Programada', estadoDestino:'Pendiente', ocId:oc.id, creadoPor:currentUser, createdAt:nowISO(), updatedAt:nowISO() };
+  }
+  DATA.ordenes.push(orden); oc.estado='En OP'; oc.ordenId=orden.id; oc.updatedAt=nowISO();
+  await saveData(); toast('OP '+orden.numero+' generada desde '+oc.numero); currentTab='ordenes'; render();
+}
+
+/* =========================================================
+   CATÁLOGO: Tipos de producto
+   ========================================================= */
+function renderCatTipos(c){
+  const destinos=Object.keys(DESTINOS);
+  c.innerHTML=`<div class="card">
+    <div class="muted" style="font-size:13px;margin-bottom:12px">Cada tipo de producto define a qué máquina va y su destino por defecto. Es lo que usa Pedidos/OC para saber la máquina.</div>
+    ${DATA.tiposProducto.map(t=>{ const m=maqById(t.maquinaId);
+      return `<div style="border:1px solid var(--border);border-radius:10px;padding:13px;margin-bottom:10px${m?`;border-left:4px solid ${m.color}`:''}">
+        <div class="field"><label>Nombre</label><input value="${esc(t.nombre||'')}" onchange="setTipo('${t.id}','nombre',this.value)"></div>
+        <div class="field2">
+          <div><label>Máquina</label><select onchange="setTipo('${t.id}','maquinaId',this.value)">${DATA.maquinas.map(mm=>`<option value="${mm.id}" ${t.maquinaId===mm.id?'selected':''}>${esc(mm.nombre)} · ${esc(mm.tipo)}</option>`).join('')}</select></div>
+          <div><label>Destino por defecto</label><select onchange="setTipo('${t.id}','destinoDefault',this.value)">${destinos.map(d=>`<option ${t.destinoDefault===d?'selected':''}>${d}</option>`).join('')}</select></div>
+        </div>
+        <div class="field2">
+          <div><label>Kg/bobina estándar</label><input type="number" value="${t.pesoBobina||''}" onchange="setTipo('${t.id}','pesoBobina',this.value)"></div>
+          <div><label>Longitud bobina (mts)</label><input type="number" value="${t.longitudBobina||''}" onchange="setTipo('${t.id}','longitudBobina',this.value)" placeholder="opcional"></div>
+        </div>
+        <div style="text-align:right"><button class="btn-ghost btn-sm" onclick="delTipo('${t.id}')">Eliminar</button></div>
+      </div>`; }).join('')}
+    <div class="row" style="margin-top:6px"><input id="newTipo" placeholder="Nombre del nuevo tipo de producto" style="flex:1" onkeydown="if(event.key==='Enter')addTipo()"><button class="btn" onclick="addTipo()">＋ Agregar tipo</button></div>
+  </div>`;
+}
+async function setTipo(id,k,val){ const t=DATA.tiposProducto.find(x=>x.id===id); t[k]=(k==='pesoBobina'||k==='longitudBobina')?(+val||null):val; await saveData(); if(k==='maquinaId')render(); }
+async function addTipo(){ const v=document.getElementById('newTipo').value.trim(); if(!v)return; DATA.tiposProducto.push({id:uid('tp'),nombre:v,maquinaId:(DATA.maquinas[0]&&DATA.maquinas[0].id),destinoDefault:'Venta directa',pesoBobina:DATA.config.pesoBobinaStd||20,longitudBobina:null}); render(); await saveData(); }
+async function delTipo(id){ if(!confirm('¿Eliminar este tipo?'))return; DATA.tiposProducto=DATA.tiposProducto.filter(x=>x.id!==id); render(); await saveData(); }
+
+function renderCatRecetas(c){
+  const all=DATA.recetasLaminado||[]; const rows=all.filter(r=>!recetaFilter||r.revisar);
+  const nRev=all.filter(r=>r.revisar).length;
+  const numKeys=['anchoFinal','espTotal','pesoBobina','petEspLam','peEspLam','petAncho','petEsp','peAncho','peEsp'];
+  c.innerHTML=`<div class="card">
+    <div class="row" style="margin-bottom:10px;align-items:center">
+      <div class="muted" style="flex:1;font-size:13px">${all.length} recetas · <b style="color:var(--amber)">${nRev} a revisar</b>. Densidades: PET ${DATA.config.densPET||1.38} · PE ${DATA.config.densPE||0.92} g/cm³.</div>
+      <button class="${recetaFilter?'btn':'btn-ghost'} btn-sm" onclick="recetaFilter=!recetaFilter;render()">Solo a revisar</button>
+    </div>
+    <div style="overflow-x:auto"><table style="font-size:12px;white-space:nowrap">
+      <thead><tr><th>Rev</th><th>Cliente</th><th>Prod</th><th>Ancho</th><th>Esp.tot</th><th>Peso/bob</th><th>PET µ</th><th>PE µ</th><th>PET ancho</th><th>PET µ madre</th><th>PE ancho</th><th>PE µ madre</th><th></th></tr></thead>
+      <tbody>${rows.map(r=>`<tr style="${r.revisar?'background:var(--amber-l)':''}">
+        <td><input type="checkbox" ${r.revisar?'checked':''} onchange="setReceta('${r.id}','revisar',this.checked)" style="width:auto"></td>
+        <td><input value="${esc(r.cliente||'')}" onchange="setReceta('${r.id}','cliente',this.value)" style="width:120px;padding:4px"></td>
+        <td><input value="${esc(r.producto||'')}" onchange="setReceta('${r.id}','producto',this.value)" style="width:58px;padding:4px"></td>
+        ${numKeys.map(k=>`<td><input type="number" value="${r[k]==null?'':r[k]}" onchange="setReceta('${r.id}','${k}',this.value)" style="width:62px;padding:4px"></td>`).join('')}
+        <td><button class="btn-ghost btn-sm" onclick="delReceta('${r.id}')">✕</button></td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+    <div class="row" style="margin-top:10px"><input id="newReceta" placeholder="Cliente de la nueva receta" style="flex:1" onkeydown="if(event.key==='Enter')addReceta()"><button class="btn" onclick="addReceta()">＋ Receta</button></div>
+  </div>`;
+}
+async function setReceta(id,k,val){ const r=DATA.recetasLaminado.find(x=>x.id===id); const numKeys=['anchoFinal','espTotal','pesoBobina','petEspLam','peEspLam','petAncho','petEsp','peAncho','peEsp']; r[k]=k==='revisar'?val:(numKeys.includes(k)?(+val||null):val); await saveData(); if(k==='revisar'&&recetaFilter)render(); }
+async function addReceta(){ const v=document.getElementById('newReceta').value.trim(); if(!v)return; DATA.recetasLaminado.push({id:uid('rl'),cliente:v,producto:'',anchoFinal:null,espTotal:null,pesoBobina:DATA.config.pesoBobinaStd||20,petEspLam:null,peEspLam:null,petAncho:null,petEsp:null,peAncho:null,peEsp:null,revisar:true}); render(); await saveData(); }
+async function delReceta(id){ if(!confirm('¿Eliminar esta receta?'))return; DATA.recetasLaminado=DATA.recetasLaminado.filter(x=>x.id!==id); render(); await saveData(); }
+
 function renderOrdenes(v){
   const ords=[...DATA.ordenes].sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
   v.innerHTML=`
@@ -409,7 +669,7 @@ function renderOrdenes(v){
         <thead><tr><th>OP</th><th>Origen</th><th>Máquina</th><th>Producto</th><th>Formato</th><th>Destino</th><th>Producción</th><th></th></tr></thead>
         <tbody>${ords.map(o=>{ const m=maqById(o.maquinaId);
           return `<tr>
-            <td><b>${esc(o.numero)}</b><div class="muted" style="font-size:11px">${fmtFecha(o.createdAt)}</div></td>
+            <td><b>${esc(o.numero)}</b>${o.ot?`<div class="muted" style="font-size:11px">OT ${esc(o.ot)}</div>`:''}<div class="muted" style="font-size:11px">${fmtFecha(o.createdAt)}</div></td>
             <td>${esc(ORIGENES[o.origen]?.label||o.origen)}${o.oc?`<div class="muted" style="font-size:11px">OC ${esc(o.oc)}</div>`:''}</td>
             <td>${m?`<span class="machine-chip" style="font-size:12px"><span class="machine-dot" style="background:${m.color}"></span>${esc(m.nombre)}</span>`:'—'}</td>
             <td>${esc(o.productoDesc||'—')}<div class="muted" style="font-size:11px">${o.cantidadObjetivo?esc(o.cantidadObjetivo)+' '+esc(o.unidad||'kg'):''}</div></td>
@@ -436,6 +696,8 @@ function openOrdenModal(id){
       <div id="o_origenDesc" class="muted" style="font-size:12px;margin-top:4px">${esc(orig.desc)}</div>
     </div>
 
+    <div class="field"><label>Orden de trabajo (OT)</label><input id="o_ot" value="${esc(o.ot||'')}" placeholder="se autogenera al guardar"></div>
+
     <div id="o_ocWrap" class="field2" style="${orig.requiereOC?'':'display:none'}">
       <div><label>Cliente</label><input id="o_cliente" value="${esc(o.cliente||'')}" placeholder="Ej: Molinos / Don Yeyo"></div>
       <div><label>OC del cliente</label><input id="o_oc" value="${esc(o.oc||'')}" placeholder="N° de OC"></div>
@@ -450,8 +712,29 @@ function openOrdenModal(id){
     <div class="field"><label>Producto / descripción</label><input id="o_prod" value="${esc(o.productoDesc||'')}" placeholder="Ej: PET cristal 30µ ancho 720"></div>
 
     <div class="field2">
-      <div><label>Cantidad objetivo</label><input id="o_cant" type="number" value="${o.cantidadObjetivo||''}" placeholder="0"></div>
+      <div><label>Cantidad objetivo</label><input id="o_cant" type="number" value="${o.cantidadObjetivo||''}" placeholder="0" oninput="calcOPlive()"></div>
       <div><label>Unidad</label><select id="o_unidad"><option ${o.unidad==='kg'?'selected':''}>kg</option><option ${o.unidad==='millar'?'selected':''}>millar</option><option ${o.unidad==='unid'?'selected':''}>unid</option></select></div>
+    </div>
+
+    <div class="card" style="background:var(--bg);padding:14px;margin:4px 0 12px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px">Cálculo de producción (automático)</div>
+      <div class="field2">
+        <div><label>Densidad (g/cm³)</label><input id="c_dens" type="number" step="0.001" value="${o.densidad!=null?o.densidad:(o.origen==='laminado'?0.92:'')}" oninput="calcOPlive()"></div>
+        <div><label>Longitud bobina (mts)</label><input id="c_long" type="number" value="${o.longitudBobina||''}" oninput="calcOPlive()"></div>
+      </div>
+      <div class="field2">
+        <div><label>Ancho plano (mm)</label><input id="c_ancho" type="number" value="${o.ancho||''}" oninput="calcOPlive()"></div>
+        <div><label>Espesor (µ)</label><input id="c_esp" type="number" value="${o.espesor||''}" oninput="calcOPlive()"></div>
+      </div>
+      <div class="field2">
+        <div><label>Metros a producir</label><input id="c_metros" type="number" value="${o.metrosPedidos||''}" oninput="calcOPlive()" placeholder="o se deriva de kg"></div>
+        <div><label>k1 (factor)</label><input id="c_k1" type="number" step="0.1" value="${o.k1||1}" oninput="calcOPlive()"></div>
+      </div>
+      <div class="field2">
+        <div><label>Peso del cono (kg)</label><input id="c_cono" type="number" step="0.001" value="${o.pesoCono!=null?o.pesoCono:1.081}" oninput="calcOPlive()"></div>
+        <div style="display:flex;align-items:flex-end"><label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0 0 9px"><input id="c_par" type="checkbox" ${o.bobinaPar?'checked':''} onchange="calcOPlive()" style="width:auto"> Redondear a bobinas par</label></div>
+      </div>
+      <div id="c_res" style="margin-top:6px;font-size:13px"></div>
     </div>
 
     <div class="field"><label>Destino</label>
@@ -473,7 +756,7 @@ function openOrdenModal(id){
       <button class="btn" onclick="guardarOrden('${ed?ed.id:''}')">${ed?'Guardar cambios':'Crear orden'}</button>
     </div>
   </div></div>`;
-  onDestinoChange();
+  onDestinoChange(); calcOPlive();
 }
 function onOrigenChange(){
   const k=$('o_origen').value, orig=ORIGENES[k];
@@ -492,10 +775,38 @@ function nextOPNumero(){
   const n=DATA.ordenes.length+1;
   return 'OP-'+String(n).padStart(4,'0');
 }
+function calcOP(p){
+  const k1=p.k1||1;
+  const gxm=(p.densidad&&p.ancho&&p.espesor)?(p.densidad*p.ancho*p.espesor*k1/1000):0;
+  let metros=p.metros||0;
+  if(!metros && p.kgObj && gxm) metros=p.kgObj*1000/gxm;
+  const pesoSC=(gxm&&p.longitud)?gxm*p.longitud/1000:0;
+  const cono=p.pesoCono||0; const pesoCC=pesoSC+cono;
+  let nbob=(metros&&p.longitud)?Math.ceil(metros/p.longitud):0; if(p.bobinaPar&&nbob%2)nbob++;
+  const kgTotal=pesoSC*nbob;
+  const dur=(p.kgHora&&kgTotal)?kgTotal/p.kgHora:0;
+  return {gxm,pesoSC,pesoCC,metros,nbob,kgTotal,dur};
+}
+function calcOPlive(){
+  const box=$('c_res'); if(!box) return;
+  const maq=maqById($('o_maq').value);
+  const c=calcOP({ densidad:+$('c_dens').value||0, ancho:+$('c_ancho').value||0, espesor:+$('c_esp').value||0, k1:+$('c_k1').value||1, longitud:+$('c_long').value||0, pesoCono:+$('c_cono').value||0, metros:+$('c_metros').value||0, kgObj:+$('o_cant').value||0, bobinaPar:$('c_par').checked, kgHora:maq?maq.kgHora:null });
+  const f=(n,d=2)=>n?n.toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
+  box.innerHTML=`<div class="grid" style="grid-template-columns:1fr 1fr;gap:6px 16px">
+    <div><span class="muted">grs/mts:</span> <b>${f(c.gxm,2)}</b></div>
+    <div><span class="muted">Metros:</span> <b>${c.metros?Math.round(c.metros).toLocaleString('es-AR'):'—'}</b></div>
+    <div><span class="muted">Peso bob. s/cono:</span> <b>${f(c.pesoSC,2)} kg</b></div>
+    <div><span class="muted">Peso bob. c/cono:</span> <b>${f(c.pesoCC,2)} kg</b></div>
+    <div><span class="muted">Cant. bobinas:</span> <b>${c.nbob||'—'}</b></div>
+    <div><span class="muted">Kg total:</span> <b style="color:var(--green-d)">${c.kgTotal?Math.round(c.kgTotal).toLocaleString('es-AR'):'—'}</b></div>
+    <div><span class="muted">Duración:</span> <b>${c.dur?f(c.dur,1)+' hs':(maq&&maq.kgHora?'—':'cargá kg/h en la máquina')}</b></div>
+  </div>`;
+}
 async function guardarOrden(id){
   const origen=$('o_origen').value;
   const destino=$('o_destino').value;
   const obj={
+    ot:$('o_ot')?$('o_ot').value.trim():'',
     origen,
     cliente:$('o_cliente')?$('o_cliente').value.trim():'',
     oc:$('o_oc')?$('o_oc').value.trim():'',
@@ -505,16 +816,27 @@ async function guardarOrden(id){
     productoDesc:$('o_prod').value.trim(),
     cantidadObjetivo:+$('o_cant').value||null,
     unidad:$('o_unidad').value,
+    densidad:+($('c_dens')?$('c_dens').value:0)||null,
+    longitudBobina:+($('c_long')?$('c_long').value:0)||null,
+    ancho:+($('c_ancho')?$('c_ancho').value:0)||null,
+    espesor:+($('c_esp')?$('c_esp').value:0)||null,
+    metrosPedidos:+($('c_metros')?$('c_metros').value:0)||null,
+    k1:+($('c_k1')?$('c_k1').value:1)||1,
+    pesoCono:($('c_cono')&&$('c_cono').value!=='')?+$('c_cono').value:null,
+    bobinaPar:$('c_par')?$('c_par').checked:false,
     destino,
     tipoProducto:DESTINOS[destino]?.tipo,
     notas:$('o_notas').value.trim(),
     updatedAt:nowISO()
   };
+  const _maqC=maqById(obj.maquinaId);
+  obj.calc=calcOP({ densidad:obj.densidad, ancho:obj.ancho, espesor:obj.espesor, k1:obj.k1, longitud:obj.longitudBobina, pesoCono:obj.pesoCono, metros:obj.metrosPedidos, kgObj:obj.cantidadObjetivo, bobinaPar:obj.bobinaPar, kgHora:_maqC?_maqC.kgHora:null });
   if(id){
     const o=DATA.ordenes.find(x=>x.id===id);
     obj.estadoProduccion=$('o_estProd').value; obj.estadoDestino=$('o_estDest').value;
     Object.assign(o,obj);
   } else {
+    if(!obj.ot) obj.ot=nextOT(obj.maquinaId);
     Object.assign(obj,{ id:uid('op'), numero:nextOPNumero(), estadoProduccion:'Programada', estadoDestino:'Pendiente', creadoPor:currentUser, createdAt:nowISO() });
     DATA.ordenes.push(obj);
   }
@@ -665,11 +987,11 @@ function renderAnalisis(v){
    CATÁLOGOS
    ========================================================= */
 function renderCatalogos(v){
-  const subs=[['maquinas','Máquinas'],['mp','Materias primas'],['formatos','Formatos'],['productos','Productos']];
+  const subs=[['maquinas','Máquinas'],['tipos','Tipos de producto'],['recetas','Recetas laminado'],['mp','Materias primas'],['formatos','Formatos'],['productos','Productos']];
   v.innerHTML=`<h2 style="margin-bottom:12px">Catálogos</h2>
     <div class="row" style="margin-bottom:16px">${subs.map(([k,l])=>`<button class="${catSub===k?'btn':'btn-ghost'}" onclick="catSub='${k}';render()">${l}</button>`).join('')}</div>
     <div id="catBody"></div>`;
-  ({maquinas:renderCatMaquinas,mp:renderCatMP,formatos:renderCatFormatos,productos:renderCatProductos}[catSub])($('catBody'));
+  ({maquinas:renderCatMaquinas,tipos:renderCatTipos,recetas:renderCatRecetas,mp:renderCatMP,formatos:renderCatFormatos,productos:renderCatProductos}[catSub])($('catBody'));
 }
 
 function renderCatMaquinas(c){
@@ -785,8 +1107,8 @@ function renderConfig(v){
     </div>
     <div class="card">
       <h3>PINs de acceso</h3>
-      <table><tbody>${Object.entries(DATA.config.pins).map(([pin,name])=>`<tr><td>${esc(name)}</td><td class="muted" style="font-family:monospace">${esc(pin)}</td><td style="text-align:right"><button class="btn-ghost btn-sm" onclick="delPin('${pin}')">✕</button></td></tr>`).join('')}</tbody></table>
-      <div class="row" style="margin-top:12px"><input id="pinName" placeholder="Nombre" style="flex:2"><input id="pinNum" placeholder="PIN" style="flex:1" maxlength="6"><button class="btn" onclick="addPin()">＋</button></div>
+      <table><thead><tr><th>Nombre</th><th>Rol</th><th>PIN</th><th></th></tr></thead><tbody>${Object.entries(DATA.config.pins).map(([pin,v])=>`<tr><td>${esc(pinName(v))}</td><td><select onchange="setPinRol('${pin}',this.value)">${['admin','supervisor','operario'].map(r=>`<option ${pinRol(v)===r?'selected':''}>${r}</option>`).join('')}</select></td><td class="muted" style="font-family:monospace">${esc(pin)}</td><td style="text-align:right"><button class="btn-ghost btn-sm" onclick="delPin('${pin}')">✕</button></td></tr>`).join('')}</tbody></table>
+      <div class="row" style="margin-top:12px"><input id="pinName" placeholder="Nombre" style="flex:2"><select id="pinRol" style="flex:1"><option>admin</option><option>supervisor</option><option>operario</option></select><input id="pinNum" placeholder="PIN" style="flex:1" maxlength="6"><button class="btn" onclick="addPin()">＋</button></div>
     </div>
     <div class="card">
       <h3>Datos</h3>
@@ -809,7 +1131,8 @@ async function cfgConectarGist(){
   try{ const r=await fetch('https://api.github.com/gists/'+id,{headers:{'Authorization':'token '+token,'Accept':'application/vnd.github+json'}}); if(!r.ok)throw new Error('HTTP '+r.status); setGistCreds(id,token); await loadData(); render(); toast('Conectado'); }
   catch(e){ st.innerHTML='<span style="color:var(--red)">Error: '+esc(e.message)+'</span>'; }
 }
-async function addPin(){ const n=$('pinName').value.trim(), p=$('pinNum').value.trim(); if(!n||!p)return; DATA.config.pins[p]=n; render(); await saveData(); }
+async function addPin(){ const n=$('pinName').value.trim(), p=$('pinNum').value.trim(); if(!n||!p)return; DATA.config.pins[p]={nombre:n,rol:$('pinRol').value}; render(); await saveData(); }
+async function setPinRol(pin,r){ const v=DATA.config.pins[pin]; DATA.config.pins[pin]=(typeof v==='string')?{nombre:v,rol:r}:Object.assign({},v,{rol:r}); await saveData(); }
 async function delPin(p){ delete DATA.config.pins[p]; render(); await saveData(); }
 function exportJSON(){ const blob=new Blob([JSON.stringify(DATA,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='extrusion-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); }
 
