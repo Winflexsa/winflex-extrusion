@@ -205,15 +205,18 @@ function seedData(){
       pins:{ '1540':{nombre:'Matías',rol:'admin'}, '3080':{nombre:'Jonathan',rol:'admin'}, '0104':{nombre:'Mirta',rol:'supervisor'}, '0035':{nombre:'Agustín',rol:'admin'}, '7070':{nombre:'Horacio',rol:'operario'} },
       operarios:[],
       pesoBobinaStd:20,
-      densPET:1.38, densPE:0.92
+      densPET:1.38, densPE:0.92,
+      conoPesoRef:4.20, conoLargoRef:2000
     },
     maquinas:[
-      { id:'maq-1', nombre:'Extrusora 1', capas:1, tipo:'Monocapa',     kgHora:null, mpCompatibles:[], especificaciones:'', color:'#16a34a' },
-      { id:'maq-2', nombre:'Extrusora 2', capas:2, tipo:'Bicapa',       kgHora:null, mpCompatibles:[], especificaciones:'', color:'#2563eb' },
-      { id:'maq-3', nombre:'Extrusora 3', capas:3, tipo:'3 capas',      kgHora:null, mpCompatibles:[], especificaciones:'', color:'#d97706' },
-      { id:'maq-4', nombre:'Extrusora 4', capas:5, tipo:'Hasta 5 capas',kgHora:null, mpCompatibles:[], especificaciones:'', color:'#7c3aed' }
+      { id:'maq-1', nombre:'Extrusora 1', capas:1, tipo:'Monocapa',     kgHora:null, mpCompatibles:['LLDPE 206','LLDPE 207','LLDPE','LLDPE+LLDPE (80/20)','Surlyn','Nucrel','HDPE'], especificaciones:'', color:'#16a34a' },
+      { id:'maq-2', nombre:'Extrusora 2', capas:2, tipo:'Bicapa',       kgHora:null, mpCompatibles:['HDPE','PA'], especificaciones:'', color:'#2563eb' },
+      { id:'maq-3', nombre:'Extrusora 3', capas:3, tipo:'3 capas',      kgHora:null, mpCompatibles:['LDPE 207','LDPE 206','BYNEL','PA'], especificaciones:'', color:'#d97706' },
+      { id:'maq-4', nombre:'Extrusora 4', capas:5, tipo:'Hasta 5 capas',kgHora:null, mpCompatibles:['LDPE 207','LDPE 206','BYNEL','PA'], especificaciones:'', color:'#7c3aed' }
     ],
-    materiasPrimas:[],
+    materiasPrimas:[
+      'LLDPE 206','LLDPE 207','LLDPE','LLDPE+LLDPE (80/20)','Surlyn','Nucrel','HDPE','PA','LDPE 207','LDPE 206','BYNEL'
+    ].map((n,i)=>({ id:'mp-'+i, nombre:n, tipo:'', proveedor:'' })),
     formatos:[ {id:'fmt-lam',nombre:'Bobina lámina'}, {id:'fmt-tubo',nombre:'Bobina tubo'}, {id:'fmt-tuboa',nombre:'Bobina tubo abierto un lado'} ],
     productos:[],
     tiposProducto:[
@@ -855,20 +858,24 @@ function openOrdenModal(id){
     <div class="card" style="background:var(--bg);padding:14px;margin:4px 0 12px">
       <div style="font-weight:700;font-size:13px;margin-bottom:10px">Cálculo de producción (automático)</div>
       <div class="field2">
+        <div><label>Formato</label><select id="c_formato" onchange="ocFormatoChg()">${['Bobina lámina','Bobina tubo','Bobina tubo abierto un lado'].map(f=>`<option ${(o.formato||'Bobina lámina')===f?'selected':''}>${f}</option>`).join('')}</select></div>
         <div><label>Densidad (g/cm³)</label><input id="c_dens" type="number" step="0.001" value="${o.densidad!=null?o.densidad:(o.origen==='laminado'?0.92:'')}" oninput="calcOPlive()"></div>
-        <div><label>Longitud bobina (mts)</label><input id="c_long" type="number" value="${o.longitudBobina||''}" oninput="calcOPlive()"></div>
       </div>
       <div class="field2">
-        <div><label>Ancho plano (mm)</label><input id="c_ancho" type="number" value="${o.ancho||''}" oninput="calcOPlive()"></div>
+        <div><label>Ancho plano (mm)</label><input id="c_ancho" type="number" value="${o.ancho||''}" oninput="ocAnchoChg()"></div>
         <div><label>Espesor (µ)</label><input id="c_esp" type="number" value="${o.espesor||''}" oninput="calcOPlive()"></div>
       </div>
       <div class="field2">
+        <div><label>Longitud bobina (mts)</label><input id="c_long" type="number" value="${o.longitudBobina||''}" oninput="calcOPlive()"></div>
         <div><label>Metros a producir</label><input id="c_metros" type="number" value="${o.metrosPedidos||''}" oninput="calcOPlive()" placeholder="o se deriva de kg"></div>
-        <div><label>k1 (factor)</label><input id="c_k1" type="number" step="0.1" value="${o.k1||1}" oninput="calcOPlive()"></div>
       </div>
       <div class="field2">
-        <div><label>Peso del cono (kg)</label><input id="c_cono" type="number" step="0.001" value="${o.pesoCono!=null?o.pesoCono:1.081}" oninput="calcOPlive()"></div>
-        <div style="display:flex;align-items:flex-end"><label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0 0 9px"><input id="c_par" type="checkbox" ${o.bobinaPar?'checked':''} onchange="calcOPlive()" style="width:auto"> Redondear a bobinas par</label></div>
+        <div><label>k1 — lámina 1 · tubo 2</label><input id="c_k1" type="number" step="0.1" value="${o.k1!=null?o.k1:k1ForFormato(o.formato)}" oninput="calcOPlive()"></div>
+        <div><label>Peso del cono (kg) · auto x ancho</label><input id="c_cono" type="number" step="0.001" value="${o.pesoCono!=null?o.pesoCono:conoForAncho(o.ancho)}" oninput="calcOPlive()"></div>
+      </div>
+      <div class="field2">
+        <div style="display:flex;align-items:flex-end"><label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0 0 9px"><input id="c_par" type="checkbox" ${((o.bobinaPar!=null?o.bobinaPar:(o.origen==='laminado')))?'checked':''} onchange="calcOPlive()" style="width:auto"> Siempre par (laminado = 2 bobinas)</label></div>
+        <div></div>
       </div>
       <div id="c_res" style="margin-top:6px;font-size:13px"></div>
     </div>
@@ -912,6 +919,10 @@ function nextOPNumero(){
   const n=DATA.ordenes.length+1;
   return 'OP-'+String(n).padStart(4,'0');
 }
+function k1ForFormato(fmt){ return (fmt && /tubo/i.test(fmt)) ? 2 : 1; }
+function conoForAncho(ancho){ const r=DATA.config.conoPesoRef||4.20, L=DATA.config.conoLargoRef||2000; return ancho?+(r*(+ancho)/L).toFixed(3):0; }
+function ocFormatoChg(){ const f=document.getElementById('c_formato'); if(f && document.getElementById('c_k1')) document.getElementById('c_k1').value=k1ForFormato(f.value); calcOPlive(); }
+function ocAnchoChg(){ const a=+document.getElementById('c_ancho').value||0; const cc=document.getElementById('c_cono'); if(cc) cc.value=conoForAncho(a); calcOPlive(); }
 function calcOP(p){
   const k1=p.k1||1;
   const gxm=(p.densidad&&p.ancho&&p.espesor)?(p.densidad*p.ancho*p.espesor*k1/1000):0;
@@ -953,6 +964,7 @@ async function guardarOrden(id){
     productoDesc:$('o_prod').value.trim(),
     cantidadObjetivo:+$('o_cant').value||null,
     unidad:$('o_unidad').value,
+    formato:$('c_formato')?$('c_formato').value:'Bobina lámina',
     densidad:+($('c_dens')?$('c_dens').value:0)||null,
     longitudBobina:+($('c_long')?$('c_long').value:0)||null,
     ancho:+($('c_ancho')?$('c_ancho').value:0)||null,
