@@ -217,6 +217,10 @@ function seedData(){
     materiasPrimas:[
       'LLDPE 206','LLDPE 207','LLDPE','LLDPE+LLDPE (80/20)','Surlyn','Nucrel','HDPE','PA','LDPE 207','LDPE 206','BYNEL'
     ].map((n,i)=>({ id:'mp-'+i, nombre:n, tipo:'', proveedor:'' })),
+    recetasCapa:[
+      { id:'rc-maq3', maquinaId:'maq-3', nombre:'Barrera PA (estándar)', capas:[ {material:'LDPE 207',pct:50}, {material:'LDPE 206',pct:16}, {material:'BYNEL',pct:4}, {material:'PA',pct:30} ] },
+      { id:'rc-maq4', maquinaId:'maq-4', nombre:'Barrera PA (estándar)', capas:[ {material:'LDPE 207',pct:50}, {material:'LDPE 206',pct:16}, {material:'BYNEL',pct:4}, {material:'PA',pct:30} ] }
+    ],
     formatos:[ {id:'fmt-lam',nombre:'Bobina lámina'}, {id:'fmt-tubo',nombre:'Bobina tubo'}, {id:'fmt-tuboa',nombre:'Bobina tubo abierto un lado'} ],
     productos:[],
     tiposProducto:[
@@ -365,13 +369,14 @@ function migrate(d){
   const s=seedData();
   d.schemaVersion=d.schemaVersion||1;
   d.config=Object.assign({},s.config,d.config||{});
-  ['maquinas','materiasPrimas','formatos','productos','tiposProducto','recetasLaminado','clientes','ordenes','ocs','producciones'].forEach(k=>{ if(!Array.isArray(d[k])) d[k]=s[k]; });
+  ['maquinas','materiasPrimas','formatos','productos','tiposProducto','recetasLaminado','clientes','recetasCapa','ordenes','ocs','producciones'].forEach(k=>{ if(!Array.isArray(d[k])) d[k]=s[k]; });
   if(!d.ordenesEliminadas) d.ordenesEliminadas={};
   if(!d.ocsEliminadas) d.ocsEliminadas={};
   if(!d.maquinas.length) d.maquinas=s.maquinas;
   if(!d.formatos.length) d.formatos=s.formatos;
   if(!d.recetasLaminado.length) d.recetasLaminado=s.recetasLaminado;
   if(!d.clientes.length) d.clientes=s.clientes;
+  if(!d.recetasCapa.length) d.recetasCapa=s.recetasCapa;
   return d;
 }
 
@@ -796,6 +801,34 @@ async function setCliente(id,k,v){ const x=DATA.clientes.find(c=>c.id===id); if(
 async function addCliente(){ const v=$('newCli').value.trim(); if(!v)return; DATA.clientes.push({id:uid('cl'),nombre:v,categoria:'otro',productos:'',notas:'',activo:true}); $('newCli').value=''; filtraClientes(); await saveData(); }
 async function delCliente(id){ if(!confirm('¿Eliminar este cliente?'))return; DATA.clientes=DATA.clientes.filter(c=>c.id!==id); filtraClientes(); await saveData(); }
 
+function renderCatCapas(c){
+  const rc=DATA.recetasCapa||[];
+  c.innerHTML=`<div class="card"><div class="muted" style="font-size:13px;margin-bottom:10px">Recetas de capa para máquinas multicapa (MAQ3, MAQ4). El % de cada material se aplica sobre el espesor y el kg total de la OP.</div>
+  ${rc.map(r=>{ const sum=r.capas.reduce((s,l)=>s+(+l.pct||0),0);
+    return `<div class="card" style="padding:12px;margin-bottom:10px">
+      <div class="row" style="gap:8px;margin-bottom:8px;align-items:center">
+        <input value="${esc(r.nombre)}" onchange="setCapaR('${r.id}','nombre',this.value)" style="flex:1">
+        <select onchange="setCapaR('${r.id}','maquinaId',this.value)" style="width:150px">${DATA.maquinas.filter(x=>x.capas>1).map(x=>`<option value="${x.id}" ${r.maquinaId===x.id?'selected':''}>${esc(x.nombre)}</option>`).join('')}</select>
+        <button class="btn-ghost btn-sm" onclick="delCapaR('${r.id}')">✕</button>
+      </div>
+      <table style="font-size:13px;width:100%"><thead><tr><th style="text-align:left">Material</th><th style="width:90px">%</th><th style="width:30px"></th></tr></thead><tbody>
+      ${r.capas.map((l,i)=>`<tr>
+        <td><select onchange="setCapa('${r.id}',${i},'material',this.value)" style="width:100%">${(DATA.materiasPrimas||[]).map(mp=>`<option ${l.material===mp.nombre?'selected':''}>${esc(mp.nombre)}</option>`).join('')}</select></td>
+        <td><input type="number" value="${l.pct}" onchange="setCapa('${r.id}',${i},'pct',this.value)" style="width:70px"></td>
+        <td><button class="btn-ghost btn-sm" onclick="delCapa('${r.id}',${i})">✕</button></td>
+      </tr>`).join('')}</tbody></table>
+      <div class="row" style="margin-top:6px;align-items:center"><button class="btn-ghost btn-sm" onclick="addCapa('${r.id}')">＋ capa</button><div style="flex:1"></div><span style="font-size:12px;color:${Math.abs(sum-100)<0.1?'var(--green-d)':'var(--amber)'}">Suma: ${sum}%</span></div>
+    </div>`; }).join('')}
+  <button class="btn" onclick="addCapaR()">＋ Receta de capa</button>
+  </div>`;
+}
+async function setCapaR(id,k,v){ const r=DATA.recetasCapa.find(x=>x.id===id); r[k]=v; if(k==='maquinaId')render(); await saveData(); }
+async function delCapaR(id){ if(!confirm('¿Eliminar esta receta de capa?'))return; DATA.recetasCapa=DATA.recetasCapa.filter(x=>x.id!==id); render(); await saveData(); }
+async function addCapaR(){ DATA.recetasCapa.push({id:uid('rc'),maquinaId:(DATA.maquinas.find(x=>x.capas>1)||{}).id||null,nombre:'Nueva receta',capas:[]}); render(); await saveData(); }
+async function setCapa(rid,i,k,v){ const r=DATA.recetasCapa.find(x=>x.id===rid); r.capas[i][k]=(k==='pct')?(+v||0):v; if(k==='pct')render(); await saveData(); }
+async function delCapa(rid,i){ const r=DATA.recetasCapa.find(x=>x.id===rid); r.capas.splice(i,1); render(); await saveData(); }
+async function addCapa(rid){ const r=DATA.recetasCapa.find(x=>x.id===rid); r.capas.push({material:(DATA.materiasPrimas[0]||{}).nombre||'',pct:0}); render(); await saveData(); }
+
 function renderOrdenes(v){
   const ords=[...DATA.ordenes].sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
   v.innerHTML=`
@@ -919,6 +952,7 @@ function nextOPNumero(){
   const n=DATA.ordenes.length+1;
   return 'OP-'+String(n).padStart(4,'0');
 }
+function recetaCapaForMaq(maqId){ return (DATA.recetasCapa||[]).find(r=>r.maquinaId===maqId); }
 function k1ForFormato(fmt){ return (fmt && /tubo/i.test(fmt)) ? 2 : 1; }
 function conoForAncho(ancho){ const r=DATA.config.conoPesoRef||4.20, L=DATA.config.conoLargoRef||2000; return ancho?+(r*(+ancho)/L).toFixed(3):0; }
 function ocFormatoChg(){ const f=document.getElementById('c_formato'); if(f && document.getElementById('c_k1')) document.getElementById('c_k1').value=k1ForFormato(f.value); calcOPlive(); }
@@ -949,6 +983,14 @@ function calcOPlive(){
     <div><span class="muted">Kg total:</span> <b style="color:var(--green-d)">${c.kgTotal?Math.round(c.kgTotal).toLocaleString('es-AR'):'—'}</b></div>
     <div><span class="muted">Duración:</span> <b>${c.dur?f(c.dur,1)+' hs':(maq&&maq.kgHora?'—':'cargá kg/h en la máquina')}</b></div>
   </div>`;
+  if(maq && maq.capas>1){
+    const rc=recetaCapaForMaq(maq.id); const esp=+$('c_esp').value||0;
+    if(rc && rc.capas && rc.capas.length && c.kgTotal && esp){
+      box.innerHTML+=`<div style="margin-top:10px;border-top:1px solid #e5e7eb;padding-top:8px">
+        <div class="muted" style="font-size:12px;margin-bottom:6px">Desglose por capa · ${esc(rc.nombre)}</div>
+        <table style="font-size:12px;width:100%"><thead><tr><th style="text-align:left">Material</th><th>%</th><th>µ</th><th style="text-align:right">Kg</th></tr></thead><tbody>${rc.capas.map(l=>`<tr><td>${esc(l.material)}</td><td style="text-align:center">${l.pct}%</td><td style="text-align:center">${(esp*l.pct/100).toFixed(1)}</td><td style="text-align:right">${Math.round(c.kgTotal*l.pct/100).toLocaleString('es-AR')}</td></tr>`).join('')}</tbody></table></div>`;
+    }
+  }
 }
 async function guardarOrden(id){
   const origen=$('o_origen').value;
@@ -1136,11 +1178,11 @@ function renderAnalisis(v){
    CATÁLOGOS
    ========================================================= */
 function renderCatalogos(v){
-  const subs=[['maquinas','Máquinas'],['tipos','Tipos de producto'],['recetas','Recetas laminado'],['clientes','Clientes'],['mp','Materias primas'],['formatos','Formatos'],['productos','Productos']];
+  const subs=[['maquinas','Máquinas'],['tipos','Tipos de producto'],['recetas','Recetas laminado'],['capas','Recetas de capa'],['clientes','Clientes'],['mp','Materias primas'],['formatos','Formatos'],['productos','Productos']];
   v.innerHTML=`<h2 style="margin-bottom:12px">Catálogos</h2>
     <div class="row" style="margin-bottom:16px">${subs.map(([k,l])=>`<button class="${catSub===k?'btn':'btn-ghost'}" onclick="catSub='${k}';render()">${l}</button>`).join('')}</div>
     <div id="catBody"></div>`;
-  ({maquinas:renderCatMaquinas,tipos:renderCatTipos,recetas:renderCatRecetas,clientes:renderCatClientes,mp:renderCatMP,formatos:renderCatFormatos,productos:renderCatProductos}[catSub])($('catBody'));
+  ({maquinas:renderCatMaquinas,tipos:renderCatTipos,recetas:renderCatRecetas,capas:renderCatCapas,clientes:renderCatClientes,mp:renderCatMP,formatos:renderCatFormatos,productos:renderCatProductos}[catSub])($('catBody'));
 }
 
 function renderCatMaquinas(c){
@@ -1349,9 +1391,13 @@ function renderTabletSession(t){
         <div><label style="color:#94a3b8">Ancho (mm)</label><input id="b_ancho" type="number" placeholder="opcional"></div>
         <div><label style="color:#94a3b8">Operario</label><input id="b_oper" list="opers" placeholder="nombre"><datalist id="opers">${(DATA.config.operarios||[]).map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
       </div>
+      <div class="field2" style="margin-top:10px">
+        <div><label style="color:#94a3b8">Scrap (kg)</label><input id="b_scrap" type="number" inputmode="decimal" placeholder="opcional"></div>
+        <div></div>
+      </div>
       <button class="big-btn" onclick="cargarBobina('${o.id}')">＋ Cargar bobina</button>
       <button onclick="terminarOrden('${o.id}')" style="width:100%;margin-top:10px;background:none;color:#94a3b8;padding:10px;font-weight:600">Terminar orden</button>
-      ${bobinas.length?`<div style="margin-top:18px"><div style="color:#94a3b8;font-size:13px;margin-bottom:8px;font-weight:600">CARGADAS</div>${bobinas.map(b=>`<div class="bobina-row"><span>${esc(b.peso)} kg ${b.metros?`· ${esc(b.metros)} m`:''}</span><span style="color:#94a3b8">${esc(b.operario||'')} · ${fmtFecha(b.timestamp).split(' ')[1]}</span></div>`).join('')}</div>`:''}
+      ${bobinas.length?`<div style="margin-top:18px"><div style="color:#94a3b8;font-size:13px;margin-bottom:8px;font-weight:600">CARGADAS</div>${bobinas.map(b=>`<div class="bobina-row"><span>${esc(b.peso)} kg ${b.metros?`· ${esc(b.metros)} m`:''}${b.scrap?` · <span style="color:#f59e0b">scrap ${esc(b.scrap)}kg</span>`:''}</span><span style="color:#94a3b8">${esc(b.operario||'')} · ${fmtFecha(b.timestamp).split(' ')[1]}</span></div>`).join('')}</div>`:''}
     </div>
   </div>`;
 }
@@ -1361,7 +1407,7 @@ async function cargarBobina(ordenId){
   const o=DATA.ordenes.find(x=>x.id===ordenId);
   const oper=$('b_oper').value.trim();
   if(oper&&!DATA.config.operarios.includes(oper)) DATA.config.operarios.push(oper);
-  DATA.producciones.push({ id:uid('bob'), ordenId, maquinaId:o.maquinaId, formato:o.formato, peso, metros:+$('b_metros').value||null, ancho:+$('b_ancho').value||null, operario:oper, timestamp:nowISO(), updatedAt:nowISO() });
+  DATA.producciones.push({ id:uid('bob'), ordenId, maquinaId:o.maquinaId, formato:o.formato, peso, metros:+$('b_metros').value||null, ancho:+$('b_ancho').value||null, scrap:+$('b_scrap').value||null, operario:oper, timestamp:nowISO(), updatedAt:nowISO() });
   renderTablet(); await saveData(); toast('Bobina cargada · '+peso+' kg');
 }
 async function terminarOrden(id){
