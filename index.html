@@ -474,7 +474,7 @@ function renderPedidos(v){
             <td>${esc(d.bobinas)}</td>
             <td><b>${Math.round(d.kg).toLocaleString('es-AR')}</b> kg${d.sub?`<div class="muted" style="font-size:11px">${esc(d.sub)}</div>`:''}</td>
             <td>${ocEstadoPill(oc)}</td>
-            <td style="white-space:nowrap"><button class="btn-ghost btn-sm" onclick="openOCModal('${oc.id}')">Ver</button> ${oc.ordenId?`<span class="pill" style="background:var(--green-l);color:var(--green-d)">OP ✓</span>`:`<button class="btn btn-sm" onclick="generarOP('${oc.id}')">Generar OP</button>`}</td>
+            <td style="white-space:nowrap"><button class="btn-ghost btn-sm" onclick="openOCModal('${oc.id}')">Ver</button> ${(()=>{const oi=ocOPInfo(oc);return oi.done?`<span class="pill" style="background:var(--green-l);color:var(--green-d)">OP ✓${oi.total>1?' ('+oi.made+'/'+oi.total+')':''}</span>`:`<button class="btn btn-sm" onclick="generarOP('${oc.id}')">Generar OP${oi.total>1?'s':''}</button>`;})()}</td>
           </tr>`; }).join('')}</tbody></table>`
       :`<div style="padding:40px;text-align:center" class="muted">No hay pedidos cargados. Apretá <b>Nueva OC</b> para empezar.</div>`}
     </div>`;
@@ -500,8 +500,20 @@ function clientesDatalist(){ return '<datalist id="clientesDatalist">'+(DATA.cli
 function getOCDisplay(oc){
   if(oc.modo==='laminado'){ const r=DATA.recetasLaminado.find(x=>x.id===oc.recetaId); const c=oc.calc;
     return { cliente:oc.cliente||(r?r.cliente:'—'), producto:(r?'Laminado '+r.producto:'Laminado'), maqId:'maq-1', medida:r?`${r.anchoFinal||'?'}×${r.espTotal||'?'}`:'—', bobinas:c?(c.nbob||'—'):'—', kg:oc.kgPedido||0, sub:c?`PET ${Math.round(c.kgPet)} / PE ${Math.round(c.kgPe)} kg`:'' }; }
-  const tp=DATA.tiposProducto.find(t=>t.id===oc.tipoProductoId);
-  return { cliente:oc.cliente||'—', producto:tp?tp.nombre:'—', maqId:oc.maquinaId, medida:`${oc.ancho||'?'}×${oc.espesor||'?'}`, bobinas:oc.cantidadBobinas||0, kg:oc.kgTotal||0, sub:'' };
+  const items=oc.items||[];
+  const cli = oc.modo==='interno' ? 'Interno' : (items.length? (items.every(x=>(x.cliente||'')===(items[0].cliente||''))? (items[0].cliente||'—') : 'Varios') : (oc.cliente||'—'));
+  const maqIds=[...new Set(items.map(x=>x.maquinaId).filter(Boolean))];
+  const producto = items.length===1? tpName(items[0].tipoProductoId) : `${items.length} medidas`;
+  const medida = items.length===1? `${items[0].ancho||'?'}×${items[0].espesor||'?'}` : '—';
+  const bobinas = items.reduce((s,x)=>s+(+x.cantidadBobinas||0),0);
+  const kg = oc.kgTotal||items.reduce((s,x)=>s+(x.kgTotal||0),0);
+  return { cliente:cli, producto, maqId:maqIds.length===1?maqIds[0]:null, medida, bobinas, kg, sub:'' };
+}
+function tpName(id){ const t=DATA.tiposProducto.find(x=>x.id===id); return t?t.nombre:'—'; }
+function ocOPInfo(oc){
+  if(oc.modo==='laminado') return { done:!!oc.ordenId, total:1, made:oc.ordenId?1:0 };
+  const it=oc.items||[]; const made=it.filter(x=>x.ordenId).length;
+  return { done:it.length>0&&made===it.length, total:it.length, made };
 }
 function laminadoFormHTML(oc,recs){
   return `
@@ -512,17 +524,37 @@ function laminadoFormHTML(oc,recs){
     <div class="field"><label>Kg del pedido (laminado)</label><input id="oc_kgped" type="number" value="${oc.kgPedido||''}" oninput="recalcOCLam()" placeholder="kg de laminado solicitados"></div>
     <div class="card" id="oc_lamRes" style="background:var(--bg);padding:14px;margin-bottom:12px"></div>`;
 }
-function directoFormHTML(oc,std){
-  return `
-    <div class="field"><label>Cliente (opcional)</label><input id="oc_cli" list="clientesDatalist" value="${esc(oc.cliente||'')}" placeholder="buscá o escribí">${clientesDatalist()}</div>
-    <div class="field"><label>Tipo de producto (define la máquina)</label>
-      <select id="oc_tipo" onchange="onOCTipoChange()">${DATA.tiposProducto.length?DATA.tiposProducto.map(t=>{ const m=maqById(t.maquinaId); return `<option value="${t.id}" ${oc.tipoProductoId===t.id?'selected':''}>${esc(t.nombre)} → ${esc(m?m.nombre:'?')}</option>`; }).join(''):'<option value="">(cargá tipos en Catálogos)</option>'}</select>
-      <div id="oc_maq" class="muted" style="font-size:12px;margin-top:4px"></div>
-    </div>
-    <div class="field2"><div><label>Ancho (mm)</label><input id="oc_ancho" type="number" value="${oc.ancho||''}"></div><div><label>Espesor (µ)</label><input id="oc_esp" type="number" value="${oc.espesor||''}"></div></div>
-    <div class="field2"><div><label>Cantidad de bobinas</label><input id="oc_bob" type="number" value="${oc.cantidadBobinas||''}" oninput="recalcOC()"></div><div><label>Kg por bobina (estándar)</label><input id="oc_peso" type="number" value="${oc.pesoPorBobina||std}" oninput="recalcOC()"></div></div>
-    <div class="card" style="background:var(--green-l);border-color:var(--green);margin:4px 0 12px;padding:12px 16px"><b style="font-size:20px" id="oc_kg">0</b> <span class="muted">kg totales aproximados</span></div>`;
+let _ocItems=[];
+function ocItemRow(it,i,showCli){
+  const std=DATA.config.pesoBobinaStd||20;
+  return `<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;flex-wrap:wrap">
+    ${showCli?`<input list="clientesDatalist" value="${esc(it.cliente||'')}" oninput="updOcItem(${i},'cliente',this.value)" placeholder="cliente" style="width:120px">`:''}
+    <select onchange="updOcItem(${i},'tipoProductoId',this.value)" style="flex:1;min-width:130px">${DATA.tiposProducto.length?DATA.tiposProducto.map(t=>`<option value="${t.id}" ${it.tipoProductoId===t.id?'selected':''}>${esc(t.nombre)}</option>`).join(''):'<option value="">(sin tipos)</option>'}</select>
+    <input type="number" value="${it.ancho||''}" oninput="updOcItem(${i},'ancho',this.value)" placeholder="ancho" style="width:68px">
+    <input type="number" value="${it.espesor||''}" oninput="updOcItem(${i},'espesor',this.value)" placeholder="esp" style="width:58px">
+    <input type="number" value="${it.cantidadBobinas||''}" oninput="updOcItem(${i},'cantidadBobinas',this.value)" placeholder="bob" style="width:54px">
+    <input type="number" value="${it.pesoPorBobina!=null?it.pesoPorBobina:std}" oninput="updOcItem(${i},'pesoPorBobina',this.value)" placeholder="kg/b" style="width:54px">
+    <button class="btn-ghost btn-sm" onclick="delOcItem(${i})" title="Quitar">✕</button>
+  </div>`;
 }
+function itemsFormHTML(oc,modo){
+  return `
+    <div class="muted" style="font-size:12px;margin-bottom:8px">Cada fila es una medida. ${modo==='clientes'?'Podés poner un cliente distinto por medida, o dejarlo vacío.':'Pedido interno, sin cliente.'}</div>
+    <div id="oc_items"></div>
+    <button class="btn-ghost btn-sm" onclick="addOcItem()" style="margin:4px 0 10px">＋ Agregar medida</button>
+    <div class="card" style="background:var(--green-l);border-color:var(--green);margin:4px 0 12px;padding:12px 16px"><b style="font-size:20px" id="oc_itemsTot">0</b> <span class="muted">kg totales (suma de medidas)</span></div>
+    ${clientesDatalist()}`;
+}
+function renderOcItems(){
+  const box=document.getElementById('oc_items'); if(!box) return;
+  const showCli=document.getElementById('oc_modo').value==='clientes';
+  box.innerHTML=_ocItems.map((it,i)=>ocItemRow(it,i,showCli)).join('');
+  ocItemsTotal();
+}
+function ocItemsTotal(){ const t=_ocItems.reduce((s,it)=>s+(+it.cantidadBobinas||0)*(+it.pesoPorBobina||0),0); const el=document.getElementById('oc_itemsTot'); if(el) el.textContent=Math.round(t).toLocaleString('es-AR'); }
+function updOcItem(i,k,v){ if(!_ocItems[i])return; _ocItems[i][k]=(k==='cliente'||k==='tipoProductoId')?v:(+v||null); if(k==='cantidadBobinas'||k==='pesoPorBobina') ocItemsTotal(); }
+function addOcItem(){ _ocItems.push({ cliente:'', tipoProductoId:DATA.tiposProducto[0]?DATA.tiposProducto[0].id:null, ancho:null, espesor:null, cantidadBobinas:null, pesoPorBobina:DATA.config.pesoBobinaStd||20 }); renderOcItems(); }
+function delOcItem(i){ _ocItems.splice(i,1); renderOcItems(); }
 function openOCModal(id, modoForce){
   const ed=id?DATA.ocs.find(o=>o.id===id):null;
   _ocEditId=id||null;
@@ -530,25 +562,23 @@ function openOCModal(id, modoForce){
   const oc=ed||{ fecha:new Date().toISOString().slice(0,10) };
   const modo=modoForce||(ed?ed.modo:null)||'laminado';
   const recs=DATA.recetasLaminado||[];
-  const body= modo==='laminado'?laminadoFormHTML(oc,recs):directoFormHTML(oc,std);
-  document.getElementById('modalRoot').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">
+  if(modo!=='laminado'){
+    _ocItems=(ed&&ed.items&&ed.items.length)?JSON.parse(JSON.stringify(ed.items)):[{ cliente:'', tipoProductoId:DATA.tiposProducto[0]?DATA.tiposProducto[0].id:null, ancho:null, espesor:null, cantidadBobinas:null, pesoPorBobina:std }];
+  }
+  const body= modo==='laminado'?laminadoFormHTML(oc,recs):itemsFormHTML(oc,modo);
+  const btn=(m,lbl)=>`<button class="${modo===m?'btn':'btn-ghost'}" onclick="setOCModo('${m}')">${lbl}</button>`;
+  document.getElementById('modalRoot').innerHTML=`<div class="modal-bg"><div class="modal">
     <div style="display:flex;align-items:center;margin-bottom:14px"><h3 style="flex:1">${ed?'OC '+esc(ed.numero):'Nueva OC'}</h3><button class="btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
-    <div class="row" style="margin-bottom:14px"><button class="${modo==='laminado'?'btn':'btn-ghost'}" onclick="setOCModo('laminado')">Laminado PET/PE</button><button class="${modo==='directo'?'btn':'btn-ghost'}" onclick="setOCModo('directo')">Directo (venta/interno)</button></div>
+    <div class="row" style="margin-bottom:14px;flex-wrap:wrap">${btn('laminado','Laminado PET/PE')}${btn('clientes','Clientes')}${btn('interno','Interno')}</div>
     <input type="hidden" id="oc_modo" value="${modo}">
     <div class="field2"><div><label>N° OC (editable)</label><input id="oc_num" value="${esc(ed?ed.numero:nextOCNumero())}"></div><div><label>Fecha</label><input id="oc_fecha" type="date" value="${esc(oc.fecha||new Date().toISOString().slice(0,10))}"></div></div>
     ${body}
     <div class="field"><label>Notas</label><textarea id="oc_notas" rows="2">${esc(oc.notas||'')}</textarea></div>
     <div style="display:flex;gap:10px;margin-top:6px">${ed?`<button class="btn-danger" onclick="borrarOC('${ed.id}')">Eliminar</button>`:''}<div style="flex:1"></div><button class="btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn" onclick="guardarOC('${ed?ed.id:''}')">${ed?'Guardar':'Crear OC'}</button></div>
   </div></div>`;
-  if(modo==='laminado') onOCRecetaChange(); else { onOCTipoChange(); recalcOC(); }
+  if(modo==='laminado') onOCRecetaChange(); else renderOcItems();
 }
 function setOCModo(m){ openOCModal(_ocEditId, m); }
-function onOCTipoChange(){
-  const el=document.getElementById('oc_tipo'); if(!el) return;
-  const t=DATA.tiposProducto.find(x=>x.id===el.value); const m=t?maqById(t.maquinaId):null;
-  document.getElementById('oc_maq').innerHTML=m?`Máquina: <b>${esc(m.nombre)}</b> · ${esc(m.tipo)} (${m.capas} capa${m.capas>1?'s':''})`:'';
-}
-function recalcOC(){ const be=document.getElementById('oc_bob'); if(!be)return; const b=+be.value||0, p=+document.getElementById('oc_peso').value||0; document.getElementById('oc_kg').textContent=Math.round(b*p).toLocaleString('es-AR'); }
 function onOCRecetaChange(){
   const sel=document.getElementById('oc_receta'); if(!sel) return;
   const r=DATA.recetasLaminado.find(x=>x.id===sel.value);
@@ -583,9 +613,12 @@ async function guardarOC(id){
     const kg=+document.getElementById('oc_kgped').value||0;
     obj=Object.assign(base,{ recetaId:r?r.id:null, cliente:r?r.cliente:'', maquinaId:'maq-1', kgPedido:kg, kgTotal:kg, calc:r?calcLaminado(r,kg):null });
   } else {
-    const tp=DATA.tiposProducto.find(t=>t.id===document.getElementById('oc_tipo').value);
-    const bob=+document.getElementById('oc_bob').value||0, peso=+document.getElementById('oc_peso').value||(DATA.config.pesoBobinaStd||20);
-    obj=Object.assign(base,{ cliente:document.getElementById('oc_cli').value.trim(), tipoProductoId:tp?tp.id:null, maquinaId:tp?tp.maquinaId:null, ancho:+document.getElementById('oc_ancho').value||null, espesor:+document.getElementById('oc_esp').value||null, cantidadBobinas:bob, pesoPorBobina:peso, kgTotal:bob*peso });
+    const std=DATA.config.pesoBobinaStd||20;
+    const items=_ocItems.filter(it=>it.tipoProductoId&&((+it.ancho)||(+it.cantidadBobinas))).map(it=>{ const tp=DATA.tiposProducto.find(t=>t.id===it.tipoProductoId); const bob=+it.cantidadBobinas||0, peso=+it.pesoPorBobina||std; return { cliente:(modo==='interno'?'':(it.cliente||'').trim()), tipoProductoId:it.tipoProductoId, maquinaId:tp?tp.maquinaId:null, ancho:+it.ancho||null, espesor:+it.espesor||null, cantidadBobinas:bob, pesoPorBobina:peso, kgTotal:bob*peso, ordenId:it.ordenId||null }; });
+    const kgTotal=items.reduce((s,it)=>s+(it.kgTotal||0),0);
+    let cliente='';
+    if(modo==='clientes'&&items.length){ cliente = items.every(x=>x.cliente===items[0].cliente)? items[0].cliente : ''; }
+    obj=Object.assign(base,{ items, kgTotal, cliente });
   }
   if(id){ Object.assign(DATA.ocs.find(o=>o.id===id),obj); }
   else { Object.assign(obj,{ id:uid('oc'), estado:'Pendiente', creadoPor:currentUser, createdAt:nowISO() }); DATA.ocs.push(obj); }
@@ -594,24 +627,30 @@ async function guardarOC(id){
 async function borrarOC(id){ if(!confirm('¿Eliminar esta OC?'))return; DATA.ocs=DATA.ocs.filter(o=>o.id!==id); DATA.ocsEliminadas[id]=nowISO(); closeModal(); render(); await saveData(); toast('OC eliminada'); }
 async function generarOP(ocId){
   const oc=DATA.ocs.find(o=>o.id===ocId); if(!oc)return;
-  if(oc.ordenId){ toast('Esta OC ya tiene OP'); return; }
-  let orden;
   if(oc.modo==='laminado'){
+    if(oc.ordenId){ toast('Esta OC ya tiene OP'); return; }
     const r=DATA.recetasLaminado.find(x=>x.id===oc.recetaId);
     const c=oc.calc||(r?calcLaminado(r,oc.kgPedido||0):null);
-    orden={ id:uid('op'), numero:nextOPNumero(), ot:nextOT('maq-1'), origen:'laminado', cliente:oc.cliente||'', oc:oc.numero||'', maquinaId:'maq-1', formato:'Bobina lámina',
+    const orden={ id:uid('op'), numero:nextOPNumero(), ot:nextOT('maq-1'), origen:'laminado', cliente:oc.cliente||'', oc:oc.numero||'', maquinaId:'maq-1', formato:'Bobina lámina',
       productoDesc:`PE ${r?(r.peAncho||''):''}×${r?(r.peEsp||''):''} (lam. ${r?r.cliente:''})`.trim(),
       ancho:r?r.peAncho:null, espesor:r?r.peEsp:null, cantidadBobinas:c?c.nbob:null, cantidadObjetivo:c?Math.round(c.kgPe):(oc.kgPedido||0), unidad:'kg',
       destino:'Laminación', tipoProducto:'proceso', demandaPet:c?Math.round(c.kgPet):null,
       estadoProduccion:'Programada', estadoDestino:'Pendiente', ocId:oc.id, creadoPor:currentUser, createdAt:nowISO(), updatedAt:nowISO() };
-  } else {
-    const tp=DATA.tiposProducto.find(t=>t.id===oc.tipoProductoId);
-    const dest=(tp&&tp.destinoDefault)||'Venta directa';
-    const origen=dest==='Laminación'?'laminado':(dest==='Uso interno'?'interno':'venta');
-    orden={ id:uid('op'), numero:nextOPNumero(), ot:nextOT(oc.maquinaId), origen, cliente:oc.cliente||'', oc:oc.numero||'', maquinaId:oc.maquinaId, formato:'Bobina lámina', productoDesc:`${tp?tp.nombre:''} ${oc.ancho||''}×${oc.espesor||''}`.trim(), ancho:oc.ancho, espesor:oc.espesor, cantidadBobinas:oc.cantidadBobinas, cantidadObjetivo:oc.kgTotal, unidad:'kg', destino:dest, tipoProducto:DESTINOS[dest]?DESTINOS[dest].tipo:'proceso', estadoProduccion:'Programada', estadoDestino:'Pendiente', ocId:oc.id, creadoPor:currentUser, createdAt:nowISO(), updatedAt:nowISO() };
+    DATA.ordenes.push(orden); oc.estado='En OP'; oc.ordenId=orden.id; oc.updatedAt=nowISO();
+    await saveData(); toast('OP '+orden.numero+' generada desde '+oc.numero); currentTab='ordenes'; render(); return;
   }
-  DATA.ordenes.push(orden); oc.estado='En OP'; oc.ordenId=orden.id; oc.updatedAt=nowISO();
-  await saveData(); toast('OP '+orden.numero+' generada desde '+oc.numero); currentTab='ordenes'; render();
+  let made=0;
+  (oc.items||[]).forEach(it=>{
+    if(it.ordenId) return;
+    const tp=DATA.tiposProducto.find(t=>t.id===it.tipoProductoId);
+    const dest= oc.modo==='interno'?'Uso interno':((tp&&tp.destinoDefault)||'Venta directa');
+    const origen= oc.modo==='interno'?'interno':(dest==='Laminación'?'laminado':'venta');
+    const orden={ id:uid('op'), numero:nextOPNumero(), ot:nextOT(it.maquinaId), origen, cliente:it.cliente||'', oc:oc.numero||'', maquinaId:it.maquinaId, formato:'Bobina lámina', productoDesc:`${tp?tp.nombre:''} ${it.ancho||''}×${it.espesor||''}`.trim(), ancho:it.ancho, espesor:it.espesor, cantidadBobinas:it.cantidadBobinas, cantidadObjetivo:it.kgTotal, unidad:'kg', destino:dest, tipoProducto:DESTINOS[dest]?DESTINOS[dest].tipo:'final', estadoProduccion:'Programada', estadoDestino:'Pendiente', ocId:oc.id, creadoPor:currentUser, createdAt:nowISO(), updatedAt:nowISO() };
+    DATA.ordenes.push(orden); it.ordenId=orden.id; made++;
+  });
+  if(!made){ toast('Todas las medidas ya tienen OP'); return; }
+  oc.estado='En OP'; oc.updatedAt=nowISO();
+  await saveData(); toast(made+' OP'+(made>1?'s':'')+' generada'+(made>1?'s':'')+' desde '+oc.numero); currentTab='ordenes'; render();
 }
 
 /* =========================================================
@@ -728,7 +767,7 @@ function openOrdenModal(id){
   const orig=ORIGENES[o.origen];
   const tipo=DESTINOS[o.destino]?.tipo||'proceso';
   const root=$('modalRoot');
-  root.innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">
+  root.innerHTML=`<div class="modal-bg"><div class="modal">
     <div style="display:flex;align-items:center;margin-bottom:16px"><h3 style="flex:1">${ed?'Orden '+esc(ed.numero):'Nueva orden de producción'}</h3><button class="btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
 
     <div class="field"><label>Origen de la orden</label>
@@ -960,7 +999,7 @@ function openSalidaModal(ordenId){
   if(!items.length){ toast('No hay bobinas en stock para esa orden'); return; }
   const destDefault=o?o.destino:'Uso interno';
   const tipos=['Laminación','Impresión','Confección','Venta directa','Uso interno','Scrap'];
-  document.getElementById('modalRoot').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">
+  document.getElementById('modalRoot').innerHTML=`<div class="modal-bg"><div class="modal">
     <div style="display:flex;align-items:center;margin-bottom:8px"><h3 style="flex:1">Registrar salida${o?' · '+esc(o.numero):''}</h3><button class="btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
     <div class="muted" style="font-size:13px;margin-bottom:12px">Marcá las bobinas que salen del stock y a dónde van.</div>
     <div class="field2">
@@ -1105,7 +1144,7 @@ function previewImport(key,rows){
   const nuevos=items.filter(o=>!dupes.has(o.nombre.toLowerCase()));
   _pendingImport={key,nuevos};
   const omit=items.length-nuevos.length;
-  $('modalRoot').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">
+  $('modalRoot').innerHTML=`<div class="modal-bg"><div class="modal">
     <div style="display:flex;align-items:center;margin-bottom:12px"><h3 style="flex:1">Importar — ${items.length} fila${items.length>1?'s':''}</h3><button class="btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
     <div class="muted" style="font-size:13px;margin-bottom:10px">Columna de nombre detectada: <b>${esc(nameCol)}</b>.${omit>0?` <span style="color:var(--amber)">${omit} ya existían y se omiten.</span>`:''}</div>
     <div style="max-height:300px;overflow:auto;border:1px solid var(--border);border-radius:8px"><table><thead><tr><th>Nombre</th><th>Otros datos</th></tr></thead><tbody>${items.slice(0,60).map(o=>{ const ex=Object.entries(o).filter(([k])=>k!=='nombre'); return `<tr><td>${esc(o.nombre)}</td><td class="muted" style="font-size:12px">${ex.map(([k,v])=>esc(k)+': '+esc(v)).join(' · ')||'—'}</td></tr>`; }).join('')}</tbody></table>${items.length>60?`<div class="muted" style="padding:8px 10px;font-size:12px">… y ${items.length-60} más</div>`:''}</div>
@@ -1208,7 +1247,7 @@ function renderTablet(){
     </div>
     ${arrancables.length?`<div style="max-width:760px;margin:22px auto 0">
       <div style="color:#94a3b8;font-size:13px;margin-bottom:8px;font-weight:600">EN COLA — tocá para arrancar</div>
-      ${arrancables.map(o=>{ const m=maqById(o.maquinaId); return `<div class="bobina-row" style="cursor:pointer" onclick="arrancarOrden('${o.id}')"><span><span class="machine-dot" style="display:inline-block;background:${m?.color}"></span> ${esc(m?.nombre||'?')} · ${esc(o.numero)}</span><span style="color:#22c55e;font-weight:700">▶ Arrancar</span></div>`; }).join('')}
+      ${arrancables.map(o=>{ const m=maqById(o.maquinaId); return `<div class="bobina-row" style="cursor:pointer" onclick="arrancarOrden('${o.id}')"><span><span class="machine-dot" style="display:inline-block;background:${m?.color}"></span> ${esc(m?.nombre||'?')} · ${esc(o.numero)}${o.productoDesc?' · '+esc(o.productoDesc):''}</span><span style="color:#22c55e;font-weight:700">▶ Arrancar</span></div>`; }).join('')}
     </div>`:''}`;
 }
 async function arrancarOrden(id){ const o=DATA.ordenes.find(x=>x.id===id); o.estadoProduccion='En producción'; o.updatedAt=nowISO(); await saveData(); renderTablet(); }
