@@ -474,7 +474,7 @@ function renderPedidos(v){
             <td>${esc(d.bobinas)}</td>
             <td><b>${Math.round(d.kg).toLocaleString('es-AR')}</b> kg${d.sub?`<div class="muted" style="font-size:11px">${esc(d.sub)}</div>`:''}</td>
             <td>${ocEstadoPill(oc)}</td>
-            <td style="white-space:nowrap"><button class="btn-ghost btn-sm" onclick="openOCModal('${oc.id}')">Ver</button> ${(()=>{const oi=ocOPInfo(oc);return oi.done?`<span class="pill" style="background:var(--green-l);color:var(--green-d)">OP ✓${oi.total>1?' ('+oi.made+'/'+oi.total+')':''}</span>`:`<button class="btn btn-sm" onclick="generarOP('${oc.id}')">Generar OP${oi.total>1?'s':''}</button>`;})()}</td>
+            <td style="white-space:nowrap"><button class="btn-ghost btn-sm" onclick="openOCModal('${oc.id}')">Ver</button> <button class="btn-ghost btn-sm" onclick="pdfOC('${oc.id}')">PDF</button> ${(()=>{const oi=ocOPInfo(oc);return oi.done?`<span class="pill" style="background:var(--green-l);color:var(--green-d)">OP ✓${oi.total>1?' ('+oi.made+'/'+oi.total+')':''}</span>`:`<button class="btn btn-sm" onclick="generarOP('${oc.id}')">Generar OP${oi.total>1?'s':''}</button>`;})()}</td>
           </tr>`; }).join('')}</tbody></table>`
       :`<div style="padding:40px;text-align:center" class="muted">No hay pedidos cargados. Apretá <b>Nueva OC</b> para empezar.</div>`}
     </div>`;
@@ -527,14 +527,16 @@ function laminadoFormHTML(oc,recs){
 let _ocItems=[];
 function ocItemRow(it,i,showCli){
   const std=DATA.config.pesoBobinaStd||20;
-  return `<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;flex-wrap:wrap">
-    ${showCli?`<input list="clientesDatalist" value="${esc(it.cliente||'')}" oninput="updOcItem(${i},'cliente',this.value)" placeholder="cliente" style="width:120px">`:''}
-    <select onchange="updOcItem(${i},'tipoProductoId',this.value)" style="flex:1;min-width:130px">${DATA.tiposProducto.length?DATA.tiposProducto.map(t=>`<option value="${t.id}" ${it.tipoProductoId===t.id?'selected':''}>${esc(t.nombre)}</option>`).join(''):'<option value="">(sin tipos)</option>'}</select>
-    <input type="number" value="${it.ancho||''}" oninput="updOcItem(${i},'ancho',this.value)" placeholder="ancho" style="width:68px">
-    <input type="number" value="${it.espesor||''}" oninput="updOcItem(${i},'espesor',this.value)" placeholder="esp" style="width:58px">
-    <input type="number" value="${it.cantidadBobinas||''}" oninput="updOcItem(${i},'cantidadBobinas',this.value)" placeholder="bob" style="width:54px">
-    <input type="number" value="${it.pesoPorBobina!=null?it.pesoPorBobina:std}" oninput="updOcItem(${i},'pesoPorBobina',this.value)" placeholder="kg/b" style="width:54px">
-    <button class="btn-ghost btn-sm" onclick="delOcItem(${i})" title="Quitar">✕</button>
+  return `<div class="card" style="padding:12px;margin-bottom:10px;position:relative">
+    <button class="btn-ghost btn-sm" onclick="delOcItem(${i})" style="position:absolute;top:8px;right:8px" title="Quitar medida">✕</button>
+    ${showCli?`<div class="field" style="margin-bottom:8px"><label>Cliente</label><input list="clientesDatalist" value="${esc(it.cliente||'')}" oninput="updOcItem(${i},'cliente',this.value)" placeholder="buscá o escribí"></div>`:''}
+    <div class="field" style="margin-bottom:8px"><label>Tipo de producto (define la máquina)</label><select onchange="updOcItem(${i},'tipoProductoId',this.value)">${DATA.tiposProducto.length?DATA.tiposProducto.map(t=>{const m=maqById(t.maquinaId);return `<option value="${t.id}" ${it.tipoProductoId===t.id?'selected':''}>${esc(t.nombre)}${m?' → '+esc(m.nombre):''}</option>`;}).join(''):'<option value="">(cargá tipos en Catálogos)</option>'}</select></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+      <div><label class="muted" style="display:block;font-size:12px;margin-bottom:3px">Ancho (mm)</label><input type="number" value="${it.ancho||''}" oninput="updOcItem(${i},'ancho',this.value)" style="width:100%"></div>
+      <div><label class="muted" style="display:block;font-size:12px;margin-bottom:3px">Espesor (µ)</label><input type="number" value="${it.espesor||''}" oninput="updOcItem(${i},'espesor',this.value)" style="width:100%"></div>
+      <div><label class="muted" style="display:block;font-size:12px;margin-bottom:3px">Bobinas</label><input type="number" value="${it.cantidadBobinas||''}" oninput="updOcItem(${i},'cantidadBobinas',this.value)" style="width:100%"></div>
+      <div><label class="muted" style="display:block;font-size:12px;margin-bottom:3px">Kg/bob</label><input type="number" value="${it.pesoPorBobina!=null?it.pesoPorBobina:std}" oninput="updOcItem(${i},'pesoPorBobina',this.value)" style="width:100%"></div>
+    </div>
   </div>`;
 }
 function itemsFormHTML(oc,modo){
@@ -653,6 +655,61 @@ async function generarOP(ocId){
   await saveData(); toast(made+' OP'+(made>1?'s':'')+' generada'+(made>1?'s':'')+' desde '+oc.numero); currentTab='ordenes'; render();
 }
 
+function loadScript(src){ return new Promise((res,rej)=>{ if([...document.scripts].some(s=>s.src===src)) return res(); const s=document.createElement('script'); s.src=src; s.onload=()=>res(); s.onerror=()=>rej(new Error('No se pudo cargar '+src)); document.head.appendChild(s); }); }
+async function ensureJsPDF(){
+  if(!window.jspdf) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  if(!(window.jspdf&&window.jspdf.jsPDF.API&&window.jspdf.jsPDF.API.autoTable)) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
+  return window.jspdf.jsPDF;
+}
+function pdfLogo(doc){ try{ const f=LOGO_FULL.indexOf('image/png')>-1?'PNG':'JPEG'; doc.addImage(LOGO_FULL,f,14,9,44,16); }catch(e){} }
+const GREEN=[22,163,74];
+async function pdfOC(id){
+  const oc=DATA.ocs.find(o=>o.id===id); if(!oc)return; toast('Generando PDF...');
+  try{
+    const jsPDF=await ensureJsPDF(); const doc=new jsPDF();
+    pdfLogo(doc);
+    doc.setFontSize(16); doc.text('Orden de Compra',196,18,{align:'right'});
+    doc.setFontSize(10); doc.text(`${oc.numero||''}   ·   ${fmtFecha(oc.fecha)}`,196,25,{align:'right'});
+    doc.setDrawColor(210); doc.line(14,31,196,31);
+    const modoLbl={laminado:'Laminado PET/PE',clientes:'Clientes',interno:'Interno'}[oc.modo]||oc.modo;
+    doc.setFontSize(10); doc.text(`Tipo: ${modoLbl}`,14,40); if(oc.cliente) doc.text(`Cliente: ${oc.cliente}`,80,40);
+    if(oc.modo==='laminado'){
+      const r=DATA.recetasLaminado.find(x=>x.id===oc.recetaId); const c=oc.calc;
+      doc.autoTable({ startY:46, head:[['Receta','Medida','Kg pedido','Kg PET','Kg PE','Bobinas']], body:[[ r?`${r.cliente} (${r.producto})`:'—', r?`${r.anchoFinal}×${r.espTotal}`:'—', (oc.kgPedido||0)+' kg', c?String(Math.round(c.kgPet)):'—', c?String(Math.round(c.kgPe)):'—', c?String(c.nbob):'—' ]], styles:{fontSize:9}, headStyles:{fillColor:GREEN} });
+    } else {
+      const body=(oc.items||[]).map(it=>{ const tp=DATA.tiposProducto.find(t=>t.id===it.tipoProductoId); const m=maqById(it.maquinaId); return [ it.cliente||'—', tp?tp.nombre:'—', m?m.nombre:'—', `${it.ancho||'?'}×${it.espesor||'?'}`, String(it.cantidadBobinas||0), Math.round(it.kgTotal||0)+' kg' ]; });
+      doc.autoTable({ startY:46, head:[['Cliente','Tipo','Máquina','Medida','Bob.','Kg']], body, styles:{fontSize:9}, headStyles:{fillColor:GREEN} });
+      doc.setFontSize(11); doc.text(`Total: ${Math.round(oc.kgTotal||0).toLocaleString('es-AR')} kg`,196,doc.lastAutoTable.finalY+7,{align:'right'});
+    }
+    if(oc.notas){ doc.setFontSize(9); doc.text('Notas: '+oc.notas,14,doc.lastAutoTable.finalY+16,{maxWidth:182}); }
+    doc.save(`OC_${(oc.numero||'s-n').replace(/[^\w-]/g,'')}.pdf`);
+  }catch(e){ alert('No se pudo generar el PDF: '+e.message); }
+}
+async function pdfOP(id){
+  const o=DATA.ordenes.find(x=>x.id===id); if(!o)return; toast('Generando PDF...');
+  try{
+    const jsPDF=await ensureJsPDF(); const doc=new jsPDF(); const m=maqById(o.maquinaId);
+    pdfLogo(doc);
+    doc.setFontSize(16); doc.text('Orden de Producción',196,18,{align:'right'});
+    doc.setFontSize(10); doc.text(`${o.numero||''}  ·  OT ${o.ot||'—'}  ·  ${fmtFecha(o.createdAt)}`,196,25,{align:'right'});
+    doc.setDrawColor(210); doc.line(14,31,196,31);
+    doc.autoTable({ startY:37, theme:'plain', styles:{fontSize:10,cellPadding:1.5},
+      body:[ ['Cliente:', o.cliente||'—', 'Máquina:', m?m.nombre:'—'], ['OC:', o.oc||'—','Origen:',o.origen||'—'], ['Producto:', o.productoDesc||'—','Destino:',o.destino||'—'], ['Medida:', `${o.ancho||'?'}×${o.espesor||'?'}`,'Cantidad:', `${o.cantidadObjetivo||0} ${o.unidad||''}`] ],
+      columnStyles:{0:{fontStyle:'bold',cellWidth:24},2:{fontStyle:'bold',cellWidth:24}} });
+    let y=doc.lastAutoTable.finalY+6; const c=o.calc;
+    if(c && (c.gxm||c.kgTotal)){
+      doc.setFontSize(11); doc.text('Cálculo de producción',14,y);
+      doc.autoTable({ startY:y+3, head:[['grs/mts','Peso s/cono','Peso c/cono','Bobinas','Kg total','Duración']], body:[[ c.gxm?c.gxm.toFixed(2):'—', c.pesoSC?c.pesoSC.toFixed(2):'—', c.pesoCC?c.pesoCC.toFixed(2):'—', String(c.nbob||'—'), c.kgTotal?String(Math.round(c.kgTotal)):'—', c.dur?c.dur.toFixed(1)+' hs':'—' ]], styles:{fontSize:9}, headStyles:{fillColor:GREEN} });
+      y=doc.lastAutoTable.finalY+6;
+    }
+    if(o.demandaPet){ doc.setFontSize(9); doc.text(`Demanda PET (Chivilcoy, informativo): ${o.demandaPet} kg`,14,y); y+=7; }
+    doc.setFontSize(10); doc.text('Registro de bobinas',14,y);
+    doc.autoTable({ startY:y+3, head:[['Fecha','Operario','N° bobina','Peso (kg)']], body:Array.from({length:10},()=>['','','','']), styles:{fontSize:9,minCellHeight:9}, headStyles:{fillColor:[90,90,90]} });
+    if(o.notas){ doc.setFontSize(9); doc.text('Notas: '+o.notas,14,doc.lastAutoTable.finalY+8,{maxWidth:182}); }
+    doc.save(`OP_${(o.numero||'s-n').replace(/[^\w-]/g,'')}.pdf`);
+  }catch(e){ alert('No se pudo generar el PDF: '+e.message); }
+}
+
 /* =========================================================
    CATÁLOGO: Tipos de producto
    ========================================================= */
@@ -755,7 +812,7 @@ function renderOrdenes(v){
             <td>${esc(o.formato||'—')}</td>
             <td>${esc(o.destino)} <span class="pill" style="background:${DESTINOS[o.destino]?.tipo==='final'?'var(--amber-l)':'var(--green-l)'};color:${DESTINOS[o.destino]?.tipo==='final'?'var(--amber)':'var(--green-d)'};margin-left:4px">${DESTINOS[o.destino]?.tipo==='final'?'final':'en proceso'}</span></td>
             <td>${pillEstadoProd(o.estadoProduccion)}</td>
-            <td><button class="btn-ghost btn-sm" onclick="openOrdenModal('${o.id}')">Ver</button></td>
+            <td style="white-space:nowrap"><button class="btn-ghost btn-sm" onclick="openOrdenModal('${o.id}')">Ver</button> <button class="btn-ghost btn-sm" onclick="pdfOP('${o.id}')">PDF</button></td>
           </tr>`; }).join('')}</tbody></table>`
       :`<div style="padding:40px;text-align:center" class="muted">Todavía no hay órdenes. Apretá <b>Nueva OP</b> para empezar.</div>`}
     </div>`;
@@ -832,6 +889,7 @@ function openOrdenModal(id){
       ${ed?`<button class="btn-danger" onclick="borrarOrden('${ed.id}')">Eliminar</button>`:''}
       <div style="flex:1"></div>
       <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+      ${ed?`<button class="btn-ghost" onclick="pdfOP('${ed.id}')">PDF</button>`:''}
       <button class="btn" onclick="guardarOrden('${ed?ed.id:''}')">${ed?'Guardar cambios':'Crear orden'}</button>
     </div>
   </div></div>`;
@@ -1186,7 +1244,7 @@ function renderConfig(v){
     </div>
     <div class="card">
       <h3>PINs de acceso</h3>
-      <table><thead><tr><th>Nombre</th><th>Rol</th><th>PIN</th><th></th></tr></thead><tbody>${Object.entries(DATA.config.pins).map(([pin,v])=>`<tr><td>${esc(pinName(v))}</td><td><select onchange="setPinRol('${pin}',this.value)">${['admin','supervisor','operario'].map(r=>`<option ${pinRol(v)===r?'selected':''}>${r}</option>`).join('')}</select></td><td class="muted" style="font-family:monospace">${esc(pin)}</td><td style="text-align:right"><button class="btn-ghost btn-sm" onclick="delPin('${pin}')">✕</button></td></tr>`).join('')}</tbody></table>
+      <table><thead><tr><th>Nombre</th><th>Rol</th><th>PIN</th><th></th></tr></thead><tbody>${Object.entries(DATA.config.pins).map(([pin,v])=>`<tr><td><input value="${esc(pinName(v))}" onchange="setPinName('${pin}',this.value)" style="padding:5px;width:130px"></td><td><select onchange="setPinRol('${pin}',this.value)">${['admin','supervisor','operario'].map(r=>`<option ${pinRol(v)===r?'selected':''}>${r}</option>`).join('')}</select></td><td><input value="${esc(pin)}" onchange="setPinNum('${pin}',this.value)" maxlength="6" style="padding:5px;width:80px;font-family:monospace"></td><td style="text-align:right"><button class="btn-ghost btn-sm" onclick="delPin('${pin}')">✕</button></td></tr>`).join('')}</tbody></table>
       <div class="row" style="margin-top:12px"><input id="pinName" placeholder="Nombre" style="flex:2"><select id="pinRol" style="flex:1"><option>admin</option><option>supervisor</option><option>operario</option></select><input id="pinNum" placeholder="PIN" style="flex:1" maxlength="6"><button class="btn" onclick="addPin()">＋</button></div>
     </div>
     <div class="card">
@@ -1210,7 +1268,9 @@ async function cfgConectarGist(){
   try{ const r=await fetch('https://api.github.com/gists/'+id,{headers:{'Authorization':'token '+token,'Accept':'application/vnd.github+json'}}); if(!r.ok)throw new Error('HTTP '+r.status); setGistCreds(id,token); await loadData(); render(); toast('Conectado'); }
   catch(e){ st.innerHTML='<span style="color:var(--red)">Error: '+esc(e.message)+'</span>'; }
 }
-async function addPin(){ const n=$('pinName').value.trim(), p=$('pinNum').value.trim(); if(!n||!p)return; DATA.config.pins[p]={nombre:n,rol:$('pinRol').value}; render(); await saveData(); }
+async function addPin(){ const n=$('pinName').value.trim(), p=$('pinNum').value.trim(); if(!n||!p)return; if(DATA.config.pins[p]){ alert('Ya existe ese PIN'); return; } DATA.config.pins[p]={nombre:n,rol:$('pinRol').value}; render(); await saveData(); }
+async function setPinName(pin,name){ const v=DATA.config.pins[pin]; DATA.config.pins[pin]=(typeof v==='string')?{nombre:name,rol:'admin'}:Object.assign({},v,{nombre:name}); await saveData(); }
+async function setPinNum(oldp,newp){ newp=(newp||'').trim(); if(!newp||newp===oldp){ render(); return; } if(DATA.config.pins[newp]){ alert('Ya existe ese PIN'); render(); return; } const v=DATA.config.pins[oldp]; delete DATA.config.pins[oldp]; DATA.config.pins[newp]=(typeof v==='string')?{nombre:v,rol:'admin'}:v; render(); await saveData(); }
 async function setPinRol(pin,r){ const v=DATA.config.pins[pin]; DATA.config.pins[pin]=(typeof v==='string')?{nombre:v,rol:r}:Object.assign({},v,{rol:r}); await saveData(); }
 async function delPin(p){ delete DATA.config.pins[p]; render(); await saveData(); }
 function exportJSON(){ const blob=new Blob([JSON.stringify(DATA,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='extrusion-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); }
