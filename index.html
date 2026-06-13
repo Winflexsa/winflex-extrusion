@@ -228,26 +228,24 @@ function seedData(){
       { id:'tp-barrera', nombre:'Film barrera 3 capas', maquinaId:'maq-3', destinoDefault:'Venta directa', pesoBobina:20, longitudBobina:null }
     ],
     recetasLaminado:[
-      ['Huertas del Pilar','200',200,450,25,400,50,430,400,450,50],
-      ['Dantelli','357-C',357,350,30,300,50,380,300,400,50],
-      ['Dantelli','357-N',357,350,30,300,50,380,300,400,50],
-      ['Dantelli','323',323,350,30,300,50,350,300,370,50],
-      ['Villa D Agri','423',423,280,83,230,50,450,230,470,50],
-      ['Villa D Agri','323',323,280,35,280,50,350,280,370,50],
-      ['Molinos','421-500',421,500,25,450,50,450,450,470,50],
-      ['Molinos','421-400',421,400,30,350,50,500,200,530,35],
-      ['Molinos','421-300',421,300,35,250,50,450,250,470,50],
-      ['Molinos','472',472,235,40,200,35,450,350,470,50],
-      ['Mendia','312',312,300,31,250,50,350,250,370,50],
-      ['La italiana','421-350',421,350,80,300,50,450,300,470,50],
-      ['La italiana','421-500',421,500,80,450,50,450,450,470,50],
-      ['Don Yeyo','321',321,300,35,250,50,350,250,370,50],
-      ['Don Yeyo','642',642,300,35,250,50,450,200,470,35],
-      ['El Artesano','300',422,235,25,200,35,550,350,570,50],
-      ['BarielPack','520-400',520,400,31,350,50,550,550,570,50],
-      ['BarielPack','520-600',520,600,45,550,50,550,300,570,50],
-      ['BarielPack','520-350',520,350,31,300,50,null,null,null,null]
-    ].map((a,i)=>({ id:'rl-'+i, cliente:a[0], producto:a[1], anchoFinal:a[2], espTotal:a[3], pesoBobina:a[4], petEspLam:a[5], peEspLam:a[6], petAncho:a[7], petEsp:a[8], peAncho:a[9], peEsp:a[10], revisar:!!((a[8]&&a[5]!==a[8])||(a[10]&&a[6]!==a[10])||!a[7]||!a[9]) })),
+      {cliente:'Pespasa', prodAncho:300,prodEsp:93,prodPeso:null, petAncho:330,petEsp:13,petPeso:null,petMts:null, peAncho:350,peEsp:80,pePeso:null,peMts:null, cilindro:320},
+      {cliente:'Huertas del Pilar', prodAncho:200,prodEsp:450,prodPeso:25, petAncho:430,petEsp:400,petPeso:100,petMts:430, peAncho:450,peEsp:50,pePeso:38.09,peMts:1800, cilindro:420},
+      {cliente:'Dantelli (357-C)', prodAncho:357,prodEsp:350,prodPeso:30, petAncho:380,petEsp:300,petPeso:92,petMts:597, peAncho:400,peEsp:50,pePeso:33.72,peMts:1800, cilindro:370},
+      {cliente:'Dantelli (357-N)', prodAncho:357,prodEsp:350,prodPeso:30, petAncho:380,petEsp:300,petPeso:92,petMts:597, peAncho:400,peEsp:50,pePeso:33.72,peMts:1800, cilindro:370},
+      {cliente:'Dantelli (323)', prodAncho:323,prodEsp:350,prodPeso:30, petAncho:350,petEsp:300,petPeso:92,petMts:649, peAncho:370,peEsp:50,pePeso:34.64,peMts:2000, cilindro:340},
+      {cliente:'Villa D Agri (423)', prodAncho:423,prodEsp:280,prodPeso:83, petAncho:450,petEsp:230,petPeso:83,petMts:594, peAncho:470,peEsp:50,pePeso:39.1,peMts:1800, cilindro:440},
+      {cliente:'Villa D Agri (323)', prodAncho:323,prodEsp:280,prodPeso:35, petAncho:350,petEsp:280,petPeso:70,petMts:644, peAncho:370,peEsp:50,pePeso:34.5,peMts:2000, cilindro:340},
+      {cliente:'Molinos (421)', prodAncho:421,prodEsp:500,prodPeso:25, petAncho:450,petEsp:450,petPeso:102,petMts:373, peAncho:470,peEsp:50,pePeso:35.26,peMts:1600, cilindro:440},
+      {cliente:'Molinos (472)', prodAncho:472,prodEsp:235,prodPeso:40, petAncho:500,petEsp:200,petPeso:80,petMts:592, peAncho:530,peEsp:35,pePeso:32,peMts:1900, cilindro:490},
+      {cliente:'Mendia (312)', prodAncho:312,prodEsp:300,prodPeso:31, petAncho:350,petEsp:250,petPeso:92,petMts:728, peAncho:370,peEsp:50,pePeso:27.73,peMts:1600, cilindro:340},
+      {cliente:'La italiana (350)', prodAncho:421,prodEsp:350,prodPeso:80, petAncho:450,petEsp:300,petPeso:80,petMts:439, peAncho:470,peEsp:50,pePeso:30,peMts:1380, cilindro:440},
+      {cliente:'La italiana (500)', prodAncho:421,prodEsp:500,prodPeso:80, petAncho:450,petEsp:450,petPeso:80,petMts:292, peAncho:470,peEsp:50,pePeso:26.4,peMts:1228, cilindro:440},
+      {cliente:'Don Yeyo (300)', prodAncho:321,prodEsp:300,prodPeso:35, petAncho:350,petEsp:250,petPeso:92,petMts:762, peAncho:370,peEsp:50,pePeso:26,peMts:1550, cilindro:340},
+      {cliente:'El Artesano (300)', prodAncho:422,prodEsp:235,prodPeso:25, petAncho:450,petEsp:250,petPeso:77,petMts:507, peAncho:470,peEsp:35,pePeso:33,peMts:1530, cilindro:440},
+      {cliente:'BarielPack (400)', prodAncho:520,prodEsp:400,prodPeso:31, petAncho:550,petEsp:350,petPeso:92,petMts:354, peAncho:570,peEsp:50,pePeso:35.92,peMts:1500, cilindro:540},
+      {cliente:'BarielPack (600)', prodAncho:520,prodEsp:600,prodPeso:45, petAncho:550,petEsp:550,petPeso:92,petMts:226, peAncho:570,peEsp:50,pePeso:24.6,peMts:946, cilindro:540},
+      {cliente:'BarielPack (350)', prodAncho:520,prodEsp:350,prodPeso:31, petAncho:550,petEsp:300,petPeso:92,petMts:413, peAncho:570,peEsp:50,pePeso:37.92,peMts:1700, cilindro:540}
+    ].map((r,i)=>Object.assign({id:'rl-'+i, revisar:(!r.pePeso||!r.peMts)}, r)),
     clientes:(function(){
       const cobr=["AVI","Alamenia","Alamenida","Archilli","Argon Pack","Ariel","Arol","Arrolados Artesanales","Arrollados Artesanales","Artola","Arzuray","Bandex","Beraja","CBM Jamones","Canete","Cariati Silvina","Casa natal","Cemave","Ciam","Corradi Beatriz","Cristian","Cuevas","DECA","Daiana","Dario","De bernardi","Deca","Dic wurst","Disbell","Dist Lance","Don Cristian","El araucano","El mataco","El mundo del papel","El polaco","Emabalajdes del litoral","Embaplast","Fabian","Fons","Font","Fonz","Gabriel","Gatti","Gentile","Graciela Juarez","Grinbalt Victor","Grupo 2000","Hector damian Sanchez","Hijos de oscar lujan","Husa","Ibañez","Ignacio","Jorge Parisi","Kiolo","Leopoldo","Marcelo","Marcelo de lobos","Marcos Fridel","Mariano","Mariano Sawidowski","Mariela La vianda","Mariela Ramirez","Martin","Martin casaux","Melquione","Miguel Provoleta","Monsalvo","Monti","Morello","Muniesa","Nieva","Oscar Dulce","Packing Express","Papelera Manapel","Papelera Wilpel","Parisi","Pilar","Roberto (comunidad)","Rotondo","SYB Envases","San Pedro Alimentos","Sebalen","Sebastian","Sturno","Sumo Mendoza","Tadeo.","Tasty food","Trigger","Valenti","Walter","Yeison"];
       const lam=["Huertas del Pilar","Dantelli","Villa D Agri","Molinos","Mendia","La italiana","Don Yeyo","El Artesano","BarielPack"];
@@ -491,23 +489,21 @@ function renderPedidos(v){
 let _ocModo='laminado';
 let _ocEditId=null;
 function calcLaminado(r,kg){
-  const dPet=DATA.config.densPET||1.38, dPe=DATA.config.densPE||0.92;
-  const gxmPet=(r.anchoFinal/10)*(r.petEspLam*1e-4)*dPet*100;
-  const gxmPe=(r.anchoFinal/10)*(r.peEspLam*1e-4)*dPe*100;
-  const gxmTot=gxmPet+gxmPe;
-  const metros=gxmTot>0?(kg*1000)/gxmTot:0;
-  const kgPet=gxmPet*metros/1000, kgPe=gxmPe*metros/1000;
-  let mbob=null,nbob=null,pesoBobPet=null,pesoBobPe=null;
-  if(r.pesoBobina&&gxmTot>0){ mbob=r.pesoBobina*1000/gxmTot; nbob=Math.ceil(metros/mbob);
-    if(r.petAncho&&r.petEsp){ const g=(r.petAncho/10)*(r.petEsp*1e-4)*dPet*100; pesoBobPet=g*mbob/1000; }
-    if(r.peAncho&&r.peEsp){ const g=(r.peAncho/10)*(r.peEsp*1e-4)*dPe*100; pesoBobPe=g*mbob/1000; }
-  }
-  return {gxmPet,gxmPe,gxmTot,metros,kgPet,kgPe,mbob,nbob,pesoBobPet,pesoBobPe};
+  const base = r.prodPeso || r.pePeso || 0;
+  let nbob = (base&&kg)? Math.ceil(kg/base) : 0;
+  if(nbob && nbob%2) nbob++;
+  const cono = conoForAncho(r.peAncho);
+  const pesoNeto = r.pePeso||0;
+  const pesoBruto = +(pesoNeto + cono).toFixed(2);
+  const metros = nbob * (r.peMts||0);
+  const kgTotalPe = +(nbob * pesoNeto).toFixed(1);
+  const kgTotalPet = +(nbob * (r.petPeso||0)).toFixed(1);
+  return { nbob, cono, pesoNeto, pesoBruto, metros, kgTotalPe, kgTotalPet };
 }
 function clientesDatalist(){ return '<datalist id="clientesDatalist">'+(DATA.clientes||[]).map(c=>`<option value="${esc(c.nombre)}"></option>`).join('')+'</datalist>'; }
 function getOCDisplay(oc){
   if(oc.modo==='laminado'){ const r=DATA.recetasLaminado.find(x=>x.id===oc.recetaId); const c=oc.calc;
-    return { cliente:oc.cliente||(r?r.cliente:'—'), producto:(r?'Laminado '+r.producto:'Laminado'), maqId:'maq-1', medida:r?`${r.anchoFinal||'?'}×${r.espTotal||'?'}`:'—', bobinas:c?(c.nbob||'—'):'—', kg:oc.kgPedido||0, sub:c?`PET ${Math.round(c.kgPet)} / PE ${Math.round(c.kgPe)} kg`:'' }; }
+    return { cliente:oc.cliente||(r?r.cliente:'—'), producto:(r?'Laminado '+(r.prodAncho||'')+'×'+(r.prodEsp||''):'Laminado'), maqId:'maq-1', medida:r?`PE ${r.peAncho||'?'}×${r.peEsp||'?'}`:'—', bobinas:c?(c.nbob||'—'):'—', kg:oc.kgPedido||0, sub:c?`PE ${Math.round(c.kgTotalPe||0)} kg`:'' }; }
   const items=oc.items||[];
   const cli = oc.modo==='interno' ? 'Interno' : (items.length? (items.every(x=>(x.cliente||'')===(items[0].cliente||''))? (items[0].cliente||'—') : 'Varios') : (oc.cliente||'—'));
   const maqIds=[...new Set(items.map(x=>x.maquinaId).filter(Boolean))];
@@ -525,11 +521,14 @@ function ocOPInfo(oc){
 }
 function laminadoFormHTML(oc,recs){
   return `
-    <div class="field"><label>Receta (cliente · producto)</label>
-      <select id="oc_receta" onchange="onOCRecetaChange()">${recs.length?recs.map(r=>`<option value="${r.id}" ${oc.recetaId===r.id?'selected':''}>${esc(r.cliente)} (${esc(r.producto)}) · ${r.anchoFinal||'?'}×${r.espTotal||'?'}${r.revisar?' ⚠':''}</option>`).join(''):'<option value="">(cargá recetas en Catálogos)</option>'}</select>
+    <div class="field"><label>Medida (cliente · producto final)</label>
+      <select id="oc_receta" onchange="onOCRecetaChange()">${recs.length?recs.map(r=>`<option value="${r.id}" ${oc.recetaId===r.id?'selected':''}>${esc(r.cliente)} · ${r.prodAncho||'?'}×${r.prodEsp||'?'}${r.revisar?' ⚠':''}</option>`).join(''):'<option value="">(cargá recetas en Catálogos)</option>'}</select>
       <div id="oc_recInfo" class="muted" style="font-size:12px;margin-top:4px"></div>
     </div>
-    <div class="field"><label>Kg del pedido (laminado)</label><input id="oc_kgped" type="number" value="${oc.kgPedido||''}" oninput="recalcOCLam()" placeholder="kg de laminado solicitados"></div>
+    <div class="field2">
+      <div><label>Kg finales del pedido</label><input id="oc_kgped" type="number" value="${oc.kgPedido||''}" oninput="recalcOCLam()" placeholder="kg que pide el cliente"></div>
+      <div><label>Inicio de producción</label><input id="oc_inicio" type="datetime-local" value="${oc.inicioProd||''}" oninput="recalcOCLam()"></div>
+    </div>
     <div class="card" id="oc_lamRes" style="background:var(--bg);padding:14px;margin-bottom:12px"></div>`;
 }
 let _ocItems=[];
@@ -593,7 +592,7 @@ function onOCRecetaChange(){
   const sel=document.getElementById('oc_receta'); if(!sel) return;
   const r=DATA.recetasLaminado.find(x=>x.id===sel.value);
   const info=document.getElementById('oc_recInfo');
-  if(info) info.innerHTML=r?`Laminado ${r.anchoFinal}×${r.espTotal} · PET ${r.petEspLam}µ + PE ${r.peEspLam}µ · bobina madre PE ${r.peAncho||'?'}×${r.peEsp||'?'} → MAQ1${r.revisar?' · <span style="color:var(--amber)">⚠ revisar receta</span>':''}`:'';
+  if(info) info.innerHTML=r?`PE ${r.peAncho||'?'}×${r.peEsp||'?'} · ${r.pePeso||'?'} kg/bob · ${r.peMts||'?'} m/bob → MAQ1${r.revisar?' · <span style="color:var(--amber)">⚠ revisar</span>':''}`:'';
   recalcOCLam();
 }
 function recalcOCLam(){
@@ -603,16 +602,26 @@ function recalcOCLam(){
   const box=document.getElementById('oc_lamRes'); if(!box) return;
   if(!r||!kg){ box.innerHTML='<span class="muted">Elegí receta y kg para ver el cálculo.</span>'; return; }
   const c=calcLaminado(r,kg);
+  const maq=maqById('maq-1'); const dur=(maq&&maq.kgHora&&c.kgTotalPe)?c.kgTotalPe/maq.kgHora:0;
+  const ini=document.getElementById('oc_inicio')?document.getElementById('oc_inicio').value:'';
+  let finTxt='—';
+  if(ini && dur){ const d=new Date(ini); d.setMinutes(d.getMinutes()+Math.round(dur*60)); finTxt=isNaN(d)?'—':d.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+  const f=(n,d=2)=>n?n.toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
   box.innerHTML=`
-    <div class="grid" style="grid-template-columns:1fr 1fr;gap:8px 16px;font-size:13px">
-      <div><span class="muted">Metros:</span> <b>${Math.round(c.metros).toLocaleString('es-AR')} m</b></div>
-      <div><span class="muted">Bobinas:</span> <b>${c.nbob||'—'}</b></div>
-      <div><span class="muted">Kg PET (Chivilcoy):</span> <b style="color:var(--blue)">${Math.round(c.kgPet).toLocaleString('es-AR')}</b></div>
-      <div><span class="muted">Kg PE (MAQ1):</span> <b style="color:var(--green-d)">${Math.round(c.kgPe).toLocaleString('es-AR')}</b></div>
-      <div><span class="muted">Peso bob. PET:</span> <b>${c.pesoBobPet?c.pesoBobPet.toFixed(1):'—'} kg</b></div>
-      <div><span class="muted">Peso bob. PE:</span> <b>${c.pesoBobPe?c.pesoBobPe.toFixed(1):'—'} kg</b></div>
+    <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--green-d)">PE a producir — MAQ1</div>
+    <div class="grid" style="grid-template-columns:1fr 1fr;gap:7px 16px;font-size:13px">
+      <div><span class="muted">Ancho:</span> <b>${r.peAncho||'—'} mm</b></div>
+      <div><span class="muted">Espesor:</span> <b>${r.peEsp||'—'} µ</b></div>
+      <div><span class="muted">Cant. bobinas (par):</span> <b>${c.nbob||'—'}</b></div>
+      <div><span class="muted">Metros totales:</span> <b>${c.metros?Math.round(c.metros).toLocaleString('es-AR'):'—'} m</b></div>
+      <div><span class="muted">Kg/bob neto (s/cono):</span> <b>${f(c.pesoNeto,2)} kg</b></div>
+      <div><span class="muted">Kg/bob bruto (c/cono):</span> <b>${f(c.pesoBruto,2)} kg</b></div>
+      <div><span class="muted">Peso del cono:</span> <b>${f(c.cono,3)} kg</b></div>
+      <div><span class="muted">Kg total PE:</span> <b style="color:var(--green-d)">${f(c.kgTotalPe,1)} kg</b></div>
+      <div><span class="muted">Duración:</span> <b>${dur?f(dur,1)+' hs':(maq&&maq.kgHora?'—':'cargá kg/h en MAQ1')}</b></div>
+      <div><span class="muted">Fin estimado:</span> <b>${finTxt}</b></div>
     </div>
-    <div class="muted" style="font-size:11px;margin-top:8px">El PET (${Math.round(c.kgPet).toLocaleString('es-AR')} kg) es informativo — lo produce Chivilcoy. La OP que se genera es la del PE para la MAQ1.</div>`;
+    <div class="muted" style="font-size:11px;margin-top:8px">PET (informativo · Chivilcoy): ${r.petAncho||'?'}×${r.petEsp||'?'} · ${c.kgTotalPet?f(c.kgTotalPet,1)+' kg':'—'}${r.cilindro?' · cilindro '+r.cilindro:''}</div>`;
 }
 async function guardarOC(id){
   const modo=document.getElementById('oc_modo').value;
@@ -621,7 +630,9 @@ async function guardarOC(id){
   if(modo==='laminado'){
     const r=DATA.recetasLaminado.find(x=>x.id===document.getElementById('oc_receta').value);
     const kg=+document.getElementById('oc_kgped').value||0;
-    obj=Object.assign(base,{ recetaId:r?r.id:null, cliente:r?r.cliente:'', maquinaId:'maq-1', kgPedido:kg, kgTotal:kg, calc:r?calcLaminado(r,kg):null });
+    const ini=document.getElementById('oc_inicio')?document.getElementById('oc_inicio').value:'';
+    const c=r?calcLaminado(r,kg):null;
+    obj=Object.assign(base,{ recetaId:r?r.id:null, cliente:r?r.cliente:'', maquinaId:'maq-1', kgPedido:kg, kgTotal:c?c.kgTotalPe:kg, inicioProd:ini, calc:c });
   } else {
     const std=DATA.config.pesoBobinaStd||20;
     const items=_ocItems.filter(it=>it.tipoProductoId&&((+it.ancho)||(+it.cantidadBobinas))).map(it=>{ const tp=DATA.tiposProducto.find(t=>t.id===it.tipoProductoId); const bob=+it.cantidadBobinas||0, peso=+it.pesoPorBobina||std; return { cliente:(modo==='interno'?'':(it.cliente||'').trim()), tipoProductoId:it.tipoProductoId, maquinaId:tp?tp.maquinaId:null, ancho:+it.ancho||null, espesor:+it.espesor||null, cantidadBobinas:bob, pesoPorBobina:peso, kgTotal:bob*peso, ordenId:it.ordenId||null }; });
@@ -641,10 +652,13 @@ async function generarOP(ocId){
     if(oc.ordenId){ toast('Esta OC ya tiene OP'); return; }
     const r=DATA.recetasLaminado.find(x=>x.id===oc.recetaId);
     const c=oc.calc||(r?calcLaminado(r,oc.kgPedido||0):null);
+    const m1=maqById('maq-1'); const dur=(m1&&m1.kgHora&&c)?c.kgTotalPe/m1.kgHora:0;
     const orden={ id:uid('op'), numero:nextOPNumero(), ot:nextOT('maq-1'), origen:'laminado', cliente:oc.cliente||'', oc:oc.numero||'', maquinaId:'maq-1', formato:'Bobina lámina',
       productoDesc:`PE ${r?(r.peAncho||''):''}×${r?(r.peEsp||''):''} (lam. ${r?r.cliente:''})`.trim(),
-      ancho:r?r.peAncho:null, espesor:r?r.peEsp:null, cantidadBobinas:c?c.nbob:null, cantidadObjetivo:c?Math.round(c.kgPe):(oc.kgPedido||0), unidad:'kg',
-      destino:'Laminación', tipoProducto:'proceso', demandaPet:c?Math.round(c.kgPet):null,
+      ancho:r?r.peAncho:null, espesor:r?r.peEsp:null, longitudBobina:r?r.peMts:null, densidad:0.92, pesoCono:c?c.cono:null, bobinaPar:true,
+      cantidadBobinas:c?c.nbob:null, cantidadObjetivo:c?Math.round(c.kgTotalPe):(oc.kgPedido||0), unidad:'kg', inicioProd:oc.inicioProd||'',
+      destino:'Laminación', tipoProducto:'proceso', demandaPet:c?Math.round(c.kgTotalPet):null,
+      calc:c?{gxm:null,pesoSC:c.pesoNeto,pesoCC:c.pesoBruto,metros:c.metros,nbob:c.nbob,kgTotal:c.kgTotalPe,dur}:null,
       estadoProduccion:'Programada', estadoDestino:'Pendiente', ocId:oc.id, creadoPor:currentUser, createdAt:nowISO(), updatedAt:nowISO() };
     DATA.ordenes.push(orden); oc.estado='En OP'; oc.ordenId=orden.id; oc.updatedAt=nowISO();
     await saveData(); toast('OP '+orden.numero+' generada desde '+oc.numero); currentTab='ordenes'; render(); return;
@@ -748,28 +762,27 @@ async function delTipo(id){ if(!confirm('¿Eliminar este tipo?'))return; DATA.ti
 function renderCatRecetas(c){
   const all=DATA.recetasLaminado||[]; const rows=all.filter(r=>!recetaFilter||r.revisar);
   const nRev=all.filter(r=>r.revisar).length;
-  const numKeys=['anchoFinal','espTotal','pesoBobina','petEspLam','peEspLam','petAncho','petEsp','peAncho','peEsp'];
+  const numKeys=['prodAncho','prodEsp','prodPeso','petAncho','petEsp','petPeso','petMts','peAncho','peEsp','pePeso','peMts','cilindro'];
   c.innerHTML=`<div class="card">
     <div class="row" style="margin-bottom:10px;align-items:center">
-      <div class="muted" style="flex:1;font-size:13px">${all.length} recetas · <b style="color:var(--amber)">${nRev} a revisar</b>. Densidades: PET ${DATA.config.densPET||1.38} · PE ${DATA.config.densPE||0.92} g/cm³.</div>
+      <div class="muted" style="flex:1;font-size:13px">${all.length} medidas (base Ficha Técnica) · <b style="color:var(--amber)">${nRev} a revisar</b>.</div>
       <button class="${recetaFilter?'btn':'btn-ghost'} btn-sm" onclick="recetaFilter=!recetaFilter;render()">Solo a revisar</button>
     </div>
     <div style="overflow-x:auto"><table style="font-size:12px;white-space:nowrap">
-      <thead><tr><th>Rev</th><th>Cliente</th><th>Prod</th><th>Ancho</th><th>Esp.tot</th><th>Peso/bob</th><th>PET µ</th><th>PE µ</th><th>PET ancho</th><th>PET µ madre</th><th>PE ancho</th><th>PE µ madre</th><th></th></tr></thead>
+      <thead><tr><th>Rev</th><th>Cliente</th><th>Prod A</th><th>Prod E</th><th>Prod kg</th><th>PET A</th><th>PET E</th><th>PET kg</th><th>PET m</th><th>PE A</th><th>PE E</th><th>PE kg</th><th>PE m</th><th>Cil</th><th></th></tr></thead>
       <tbody>${rows.map(r=>`<tr style="${r.revisar?'background:var(--amber-l)':''}">
         <td><input type="checkbox" ${r.revisar?'checked':''} onchange="setReceta('${r.id}','revisar',this.checked)" style="width:auto"></td>
-        <td><input value="${esc(r.cliente||'')}" onchange="setReceta('${r.id}','cliente',this.value)" style="width:120px;padding:4px"></td>
-        <td><input value="${esc(r.producto||'')}" onchange="setReceta('${r.id}','producto',this.value)" style="width:58px;padding:4px"></td>
-        ${numKeys.map(k=>`<td><input type="number" value="${r[k]==null?'':r[k]}" onchange="setReceta('${r.id}','${k}',this.value)" style="width:62px;padding:4px"></td>`).join('')}
+        <td><input value="${esc(r.cliente||'')}" onchange="setReceta('${r.id}','cliente',this.value)" style="width:140px;padding:4px"></td>
+        ${numKeys.map(k=>`<td><input type="number" value="${r[k]==null?'':r[k]}" onchange="setReceta('${r.id}','${k}',this.value)" style="width:58px;padding:4px"></td>`).join('')}
         <td><button class="btn-ghost btn-sm" onclick="delReceta('${r.id}')">✕</button></td>
       </tr>`).join('')}</tbody>
     </table></div>
-    <div class="row" style="margin-top:10px"><input id="newReceta" placeholder="Cliente de la nueva receta" style="flex:1" onkeydown="if(event.key==='Enter')addReceta()"><button class="btn" onclick="addReceta()">＋ Receta</button></div>
+    <div class="row" style="margin-top:10px"><input id="newReceta" placeholder="Cliente de la nueva medida" style="flex:1" onkeydown="if(event.key==='Enter')addReceta()"><button class="btn" onclick="addReceta()">＋ Medida</button></div>
   </div>`;
 }
-async function setReceta(id,k,val){ const r=DATA.recetasLaminado.find(x=>x.id===id); const numKeys=['anchoFinal','espTotal','pesoBobina','petEspLam','peEspLam','petAncho','petEsp','peAncho','peEsp']; r[k]=k==='revisar'?val:(numKeys.includes(k)?(+val||null):val); await saveData(); if(k==='revisar'&&recetaFilter)render(); }
-async function addReceta(){ const v=document.getElementById('newReceta').value.trim(); if(!v)return; DATA.recetasLaminado.push({id:uid('rl'),cliente:v,producto:'',anchoFinal:null,espTotal:null,pesoBobina:DATA.config.pesoBobinaStd||20,petEspLam:null,peEspLam:null,petAncho:null,petEsp:null,peAncho:null,peEsp:null,revisar:true}); render(); await saveData(); }
-async function delReceta(id){ if(!confirm('¿Eliminar esta receta?'))return; DATA.recetasLaminado=DATA.recetasLaminado.filter(x=>x.id!==id); render(); await saveData(); }
+async function setReceta(id,k,val){ const r=DATA.recetasLaminado.find(x=>x.id===id); const numKeys=['prodAncho','prodEsp','prodPeso','petAncho','petEsp','petPeso','petMts','peAncho','peEsp','pePeso','peMts','cilindro']; r[k]=k==='revisar'?val:(numKeys.includes(k)?(+val||null):val); await saveData(); if(k==='revisar'&&recetaFilter)render(); }
+async function addReceta(){ const v=document.getElementById('newReceta').value.trim(); if(!v)return; DATA.recetasLaminado.push({id:uid('rl'),cliente:v,prodAncho:null,prodEsp:null,prodPeso:null,petAncho:null,petEsp:null,petPeso:null,petMts:null,peAncho:null,peEsp:null,pePeso:null,peMts:null,cilindro:null,revisar:true}); render(); await saveData(); }
+async function delReceta(id){ if(!confirm('¿Eliminar esta medida?'))return; DATA.recetasLaminado=DATA.recetasLaminado.filter(x=>x.id!==id); render(); await saveData(); }
 
 function renderCatClientes(c){
   c.innerHTML=`<div class="card">
