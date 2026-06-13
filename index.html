@@ -643,7 +643,7 @@ async function generarOP(ocId){
       productoDesc:`PE ${r?(r.peAncho||''):''}×${r?(r.peEsp||''):''} (lam. ${r?r.cliente:''})`.trim(),
       ancho:r?r.peAncho:null, espesor:r?r.peEsp:null, longitudBobina:r?r.peMts:null, densidad:0.92, pesoCono:c?c.cono:null, bobinaPar:true,
       cantidadBobinas:c?c.nbob:null, cantidadObjetivo:c?Math.round(c.kgTotalPe):(oc.kgPedido||0), unidad:'kg', inicioProd:oc.inicioProd||'',
-      destino:'Laminación', tipoProducto:'proceso', demandaPet:c?Math.round(c.kgTotalPet):null,
+      destino:'Laminación', tipoProducto:'proceso', demandaPet:c?Math.round(c.kgTotalPet):null, longBobPet:r?r.petMts:null, tipoExt:'lamina', fechaInicio:new Date().toISOString().slice(0,10),
       calc:c?{gxm:null,pesoSC:c.pesoNeto,pesoCC:c.pesoBruto,metros:c.metros,nbob:c.nbob,kgTotal:c.kgTotalPe,dur}:null,
       estadoProduccion:'Programada', estadoDestino:'Pendiente', ocId:oc.id, creadoPor:currentUser, createdAt:nowISO(), updatedAt:nowISO() };
     DATA.ordenes.push(orden); oc.estado='En OP'; oc.ordenId=orden.id; oc.updatedAt=nowISO();
@@ -696,24 +696,41 @@ async function pdfOC(id){
 async function pdfOP(id){
   const o=DATA.ordenes.find(x=>x.id===id); if(!o)return; toast('Generando PDF...');
   try{
-    const jsPDF=await ensureJsPDF(); const doc=new jsPDF(); const m=maqById(o.maquinaId);
+    const jsPDF=await ensureJsPDF(); const doc=new jsPDF(); const m=maqById(o.maquinaId); const c=o.calc||{};
+    const dom=(v)=>(v||v===0)?String(v):'';
+    const HEAD=[240,253,244];
     pdfLogo(doc);
-    doc.setFontSize(16); doc.text('Orden de Producción',196,18,{align:'right'});
-    doc.setFontSize(10); doc.text(`${o.numero||''}  ·  OT ${o.ot||'—'}  ·  ${fmtFecha(o.createdAt)}`,196,25,{align:'right'});
-    doc.setDrawColor(210); doc.line(14,31,196,31);
-    doc.autoTable({ startY:37, theme:'plain', styles:{fontSize:10,cellPadding:1.5},
-      body:[ ['Cliente:', o.cliente||'—', 'Máquina:', m?m.nombre:'—'], ['OC:', o.oc||'—','Origen:',o.origen||'—'], ['Producto:', o.productoDesc||'—','Destino:',o.destino||'—'], ['Medida:', `${o.ancho||'?'}×${o.espesor||'?'}`,'Cantidad:', `${o.cantidadObjetivo||0} ${o.unidad||''}`] ],
-      columnStyles:{0:{fontStyle:'bold',cellWidth:24},2:{fontStyle:'bold',cellWidth:24}} });
-    let y=doc.lastAutoTable.finalY+6; const c=o.calc;
-    if(c && (c.gxm||c.kgTotal)){
-      doc.setFontSize(11); doc.text('Cálculo de producción',14,y);
-      doc.autoTable({ startY:y+3, head:[['grs/mts','Peso s/cono','Peso c/cono','Bobinas','Kg total','Duración']], body:[[ c.gxm?c.gxm.toFixed(2):'—', c.pesoSC?c.pesoSC.toFixed(2):'—', c.pesoCC?c.pesoCC.toFixed(2):'—', String(c.nbob||'—'), c.kgTotal?String(Math.round(c.kgTotal)):'—', c.dur?c.dur.toFixed(1)+' hs':'—' ]], styles:{fontSize:9}, headStyles:{fillColor:GREEN} });
-      y=doc.lastAutoTable.finalY+6;
-    }
-    if(o.demandaPet){ doc.setFontSize(9); doc.text(`Demanda PET (Chivilcoy, informativo): ${o.demandaPet} kg`,14,y); y+=7; }
+    doc.setFontSize(15); doc.text('Hoja de datos — Orden de Producción',200,16,{align:'right'});
+    doc.setFontSize(10); doc.text(`${o.numero||''}  ·  OT ${o.ot||'—'}`,200,23,{align:'right'});
+    doc.autoTable({ startY:30, theme:'grid', styles:{fontSize:10,cellPadding:2},
+      body:[ ['Cliente', o.cliente||'—', 'Máquina', m?m.nombre:'—'],
+             ['Producto', o.productoDesc||'—', 'Fecha extrusión', fmtFecha(o.fechaInicio||o.createdAt)],
+             ['OC', o.oc||'—', 'Tipo extrusión', (o.tipoExt==='tubo'?'Tubo':'Lámina')] ],
+      columnStyles:{0:{fontStyle:'bold',cellWidth:30,fillColor:HEAD},2:{fontStyle:'bold',cellWidth:34,fillColor:HEAD}} });
+    let y=doc.lastAutoTable.finalY+4;
+    doc.setFontSize(8); doc.text('Temperaturas (°C) — Tolva T1-2 · Tornillo T3-5 · Adaptador T6-7 · Cabezal T8-9',14,y);
+    doc.autoTable({ startY:y+1, head:[['T1','T2','T3','T4','T5','T6','T7','T8','T9']], body:[[1,2,3,4,5,6,7,8,9].map(i=>dom(o['t'+i]))], styles:{fontSize:9,halign:'center'}, headStyles:{fillColor:[90,90,90],halign:'center'} });
+    y=doc.lastAutoTable.finalY+4;
+    doc.autoTable({ startY:y, theme:'grid', styles:{fontSize:10,cellPadding:2},
+      body:[
+        ['Ancho plano (mm)', dom(o.ancho), 'Veloc. motor', dom(o.velocMotor)],
+        ['Espesor (µ)', dom(o.espesor), 'Veloc. tiro', dom(o.velocTiro)],
+        ['Mts/bobina', dom(o.longitudBobina), 'Cantidad de bobinas', dom(c.nbob||o.cantidadBobinas)],
+        ['Peso bob. s/cono (kg)', c.pesoSC?c.pesoSC.toFixed(3):'', 'Peso bob. c/cono (kg)', c.pesoCC?c.pesoCC.toFixed(3):''],
+        ['Material', o.material||'—', 'Dinas', dom(o.dinas)],
+        ['Tratado', [o.tratadoCE?'CE':null,o.tratadoCI?'CI':null,o.tratado2C?'2C':null].filter(Boolean).join(' ')||'—', 'Tubo a 1 lado', o.tubo1lado?'Sí':'No'],
+        ['Long. bob. PET (info)', dom(o.longBobPet), 'Demanda PET (info)', o.demandaPet?o.demandaPet+' kg':'—'] ],
+      columnStyles:{0:{fontStyle:'bold',cellWidth:44,fillColor:HEAD},2:{fontStyle:'bold',cellWidth:42,fillColor:HEAD}} });
+    y=doc.lastAutoTable.finalY+4;
+    const durTxt=c.dur?(Math.floor(c.dur)+' hs '+Math.round((c.dur-Math.floor(c.dur))*60)+' min'):'—';
+    doc.autoTable({ startY:y, theme:'grid', styles:{fontSize:10,cellPadding:2},
+      body:[ ['Duración extrusión', durTxt, 'Kg teórico total', c.kgTotal?(Math.round(c.kgTotal)+' kg'):(o.cantidadObjetivo||'—')] ],
+      columnStyles:{0:{fontStyle:'bold',cellWidth:44,fillColor:HEAD},2:{fontStyle:'bold',cellWidth:42,fillColor:HEAD}} });
+    y=doc.lastAutoTable.finalY+5;
+    doc.setFontSize(8); doc.text('Colocar etiqueta autoadhesiva con N° de bobina y N° de partida en el cono.',14,y); y+=4;
     doc.setFontSize(10); doc.text('Registro de bobinas',14,y);
-    doc.autoTable({ startY:y+3, head:[['Fecha','Operario','N° bobina','Peso (kg)']], body:Array.from({length:10},()=>['','','','']), styles:{fontSize:9,minCellHeight:9}, headStyles:{fillColor:[90,90,90]} });
-    if(o.notas){ doc.setFontSize(9); doc.text('Notas: '+o.notas,14,doc.lastAutoTable.finalY+8,{maxWidth:182}); }
+    doc.autoTable({ startY:y+2, head:[['Fecha','Operario','N° bobina','Peso (kg)','Scrap (kg)']], body:Array.from({length:Math.max(8,c.nbob||8)},()=>['','','','','']), styles:{fontSize:9,minCellHeight:8}, headStyles:{fillColor:[90,90,90]} });
+    if(o.notas){ doc.setFontSize(9); doc.text('Notas: '+o.notas,14,doc.lastAutoTable.finalY+7,{maxWidth:182}); }
     doc.save(`OP_${(o.numero||'s-n').replace(/[^\w-]/g,'')}.pdf`);
   }catch(e){ alert('No se pudo generar el PDF: '+e.message); }
 }
@@ -912,6 +929,33 @@ function openOrdenModal(id){
       <div id="c_res" style="margin-top:6px;font-size:13px"></div>
     </div>
 
+    <div class="card" style="padding:14px;margin:4px 0 12px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px">Hoja de datos — seteo de máquina</div>
+      <input type="hidden" id="o_longBobPet" value="${o.longBobPet||''}">
+      <div class="field2">
+        <div><label>Fecha extrusión (inicio)</label><input id="o_fechaInicio" type="date" value="${o.fechaInicio||''}"></div>
+        <div><label>Tipo extrusión</label><select id="o_tipoExt" onchange="if(document.getElementById('c_formato')){document.getElementById('c_formato').value=this.value==='tubo'?'Bobina tubo':'Bobina lámina';} ocFormatoChg();"><option value="lamina" ${(o.tipoExt||'lamina')==='lamina'?'selected':''}>Lámina</option><option value="tubo" ${o.tipoExt==='tubo'?'selected':''}>Tubo</option></select></div>
+      </div>
+      <div class="muted" style="font-size:12px;font-weight:600;margin:6px 0 4px">Temperaturas (°C) — Tolva T1-2 · Tornillo T3-5 · Adaptador T6-7 · Cabezal T8-9</div>
+      <div style="display:grid;grid-template-columns:repeat(9,1fr);gap:4px;margin-bottom:8px">
+        ${[1,2,3,4,5,6,7,8,9].map(i=>`<div><label class="muted" style="font-size:10px;display:block;text-align:center;margin:0">T${i}</label><input id="o_t${i}" type="number" value="${o['t'+i]||''}" style="width:100%;padding:4px;text-align:center"></div>`).join('')}
+      </div>
+      <div class="field2">
+        <div><label>Veloc. motor</label><input id="o_vmotor" type="number" value="${o.velocMotor||''}"></div>
+        <div><label>Veloc. tiro</label><input id="o_vtiro" type="number" step="0.1" value="${o.velocTiro||''}"></div>
+      </div>
+      <div class="field2">
+        <div><label>Material a utilizar</label><input id="o_material" list="mpDatalist" value="${esc(o.material||'')}" placeholder="ej: DOW LDPE 206"><datalist id="mpDatalist">${(DATA.materiasPrimas||[]).map(mp=>`<option>${esc(mp.nombre)}</option>`).join('')}</datalist></div>
+        <div><label>Dinas (tratado)</label><input id="o_dinas" type="number" value="${o.dinas||''}"></div>
+      </div>
+      <div class="row" style="gap:16px;margin-top:8px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:5px;font-weight:400;margin:0"><input id="o_ce" type="checkbox" ${o.tratadoCE?'checked':''} style="width:auto"> CE</label>
+        <label style="display:flex;align-items:center;gap:5px;font-weight:400;margin:0"><input id="o_ci" type="checkbox" ${o.tratadoCI?'checked':''} style="width:auto"> CI</label>
+        <label style="display:flex;align-items:center;gap:5px;font-weight:400;margin:0"><input id="o_2c" type="checkbox" ${o.tratado2C?'checked':''} style="width:auto"> 2C</label>
+        <label style="display:flex;align-items:center;gap:5px;font-weight:400;margin:0"><input id="o_tubo1" type="checkbox" ${o.tubo1lado?'checked':''} style="width:auto"> Tubo a 1 lado</label>
+      </div>
+    </div>
+
     <div class="field"><label>Destino</label>
       <select id="o_destino" onchange="onDestinoChange()">${orig.destinos.map(d=>`<option ${o.destino===d?'selected':''}>${d}</option>`).join('')}</select>
       <div id="o_destTipo" class="muted" style="font-size:12px;margin-top:4px"></div>
@@ -979,8 +1023,9 @@ function calcOPlive(){
     <div><span class="muted">Peso bob. s/cono:</span> <b>${f(c.pesoSC,2)} kg</b></div>
     <div><span class="muted">Peso bob. c/cono:</span> <b>${f(c.pesoCC,2)} kg</b></div>
     <div><span class="muted">Cant. bobinas:</span> <b>${c.nbob||'—'}</b></div>
-    <div><span class="muted">Kg total:</span> <b style="color:var(--green-d)">${c.kgTotal?Math.round(c.kgTotal).toLocaleString('es-AR'):'—'}</b></div>
-    <div><span class="muted">Duración:</span> <b>${c.dur?f(c.dur,1)+' hs':(maq&&maq.kgHora?'—':'cargá kg/h en la máquina')}</b></div>
+    <div><span class="muted">Kg teórico total:</span> <b style="color:var(--green-d)">${c.kgTotal?Math.round(c.kgTotal).toLocaleString('es-AR'):'—'}</b></div>
+    <div><span class="muted">Duración:</span> <b>${c.dur?(Math.floor(c.dur)+' hs '+Math.round((c.dur-Math.floor(c.dur))*60)+' min'):(maq&&maq.kgHora?'—':'cargá kg/h en la máquina')}</b></div>
+    ${(()=>{const lp=$('o_longBobPet')?+$('o_longBobPet').value:0;return lp?`<div><span class="muted">Long. bob. PET:</span> <b>${lp} m</b></div>`:'';})()}
   </div>`;
   if(maq && maq.capas>1){
     const rc=recetaCapaForMaq(maq.id); const esp=+$('c_esp').value||0;
@@ -1014,6 +1059,18 @@ async function guardarOrden(id){
     k1:+($('c_k1')?$('c_k1').value:1)||1,
     pesoCono:($('c_cono')&&$('c_cono').value!=='')?+$('c_cono').value:null,
     bobinaPar:$('c_par')?$('c_par').checked:false,
+    fechaInicio:$('o_fechaInicio')?$('o_fechaInicio').value:'',
+    tipoExt:$('o_tipoExt')?$('o_tipoExt').value:'lamina',
+    velocMotor:+($('o_vmotor')?$('o_vmotor').value:0)||null,
+    velocTiro:+($('o_vtiro')?$('o_vtiro').value:0)||null,
+    material:$('o_material')?$('o_material').value.trim():'',
+    dinas:+($('o_dinas')?$('o_dinas').value:0)||null,
+    tratadoCE:$('o_ce')?$('o_ce').checked:false,
+    tratadoCI:$('o_ci')?$('o_ci').checked:false,
+    tratado2C:$('o_2c')?$('o_2c').checked:false,
+    tubo1lado:$('o_tubo1')?$('o_tubo1').checked:false,
+    longBobPet:+($('o_longBobPet')?$('o_longBobPet').value:0)||null,
+    t1:+($('o_t1')?$('o_t1').value:0)||null,t2:+($('o_t2')?$('o_t2').value:0)||null,t3:+($('o_t3')?$('o_t3').value:0)||null,t4:+($('o_t4')?$('o_t4').value:0)||null,t5:+($('o_t5')?$('o_t5').value:0)||null,t6:+($('o_t6')?$('o_t6').value:0)||null,t7:+($('o_t7')?$('o_t7').value:0)||null,t8:+($('o_t8')?$('o_t8').value:0)||null,t9:+($('o_t9')?$('o_t9').value:0)||null,
     destino,
     tipoProducto:DESTINOS[destino]?.tipo,
     notas:$('o_notas').value.trim(),
