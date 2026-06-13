@@ -473,7 +473,7 @@ function renderPedidos(v){
       ${ocs.length?`<table>
         <thead><tr><th>OC</th><th>Cliente</th><th>Producto / Máquina</th><th>Medida</th><th>Bobinas</th><th>Kg aprox</th><th>Estado</th><th>OP</th><th></th></tr></thead>
         <tbody>${ocs.map(oc=>{ const d=getOCDisplay(oc); const m=maqById(d.maqId);
-          return `<tr>
+          return `<tr style="cursor:pointer" onclick="verOC('${oc.id}')">
             <td><b>${esc(oc.numero)}</b><div class="muted" style="font-size:11px">${oc.modo==='laminado'?'Laminado':'Directo'} · ${fmtFecha(oc.createdAt)}</div></td>
             <td>${esc(d.cliente)}</td>
             <td>${esc(d.producto)}${m?`<div class="machine-chip" style="font-size:11px;margin-top:2px"><span class="machine-dot" style="background:${m.color}"></span>${esc(m.nombre)}</div>`:''}</td>
@@ -482,7 +482,7 @@ function renderPedidos(v){
             <td><b>${Math.round(d.kg).toLocaleString('es-AR')}</b> kg${d.sub?`<div class="muted" style="font-size:11px">${esc(d.sub)}</div>`:''}</td>
             <td>${ocEstadoPill(oc)}</td>
             <td style="font-family:monospace;font-size:12px;color:var(--green-d)">${esc(ocOPNumeros(oc)||'—')}</td>
-            <td style="white-space:nowrap"><button class="btn-ghost btn-sm" onclick="openOCModal('${oc.id}')">Ver</button> <button class="btn-ghost btn-sm" onclick="pdfOC('${oc.id}')">PDF</button> ${(()=>{const oi=ocOPInfo(oc);return oi.done?`<span class="pill" style="background:var(--green-l);color:var(--green-d)">OP ✓${oi.total>1?' ('+oi.made+'/'+oi.total+')':''}</span>`:`<button class="btn btn-sm" onclick="generarOP('${oc.id}')">Generar OP${oi.total>1?'s':''}</button>`;})()}</td>
+            <td style="white-space:nowrap" onclick="event.stopPropagation()"><button class="btn-ghost btn-sm" onclick="openOCModal('${oc.id}')">Editar</button> <button class="btn-ghost btn-sm" onclick="pdfOC('${oc.id}')">PDF</button></td>
           </tr>`; }).join('')}</tbody></table>`
       :`<div style="padding:40px;text-align:center" class="muted">No hay pedidos cargados. Apretá <b>Nueva OC</b> para empezar.</div>`}
     </div>`;
@@ -625,8 +625,8 @@ async function guardarOC(id){
   }
   const esNueva=!id;
   if(id){ Object.assign(DATA.ocs.find(o=>o.id===id),obj); }
-  else { Object.assign(obj,{ id:uid('oc'), estado:'Pendiente', creadoPor:currentUser, createdAt:nowISO() }); DATA.ocs.push(obj); }
-  closeModal(); render(); await saveData(); toast('OC guardada');
+  else { Object.assign(obj,{ id:uid('oc'), estado:'Pendiente', creadoPor:currentUser, createdAt:nowISO() }); DATA.ocs.push(obj); currentTab='pedidos'; }
+  closeModal(); render(); await saveData(); toast(esNueva?'OC cargada en Pedidos':'OC guardada');
   if(esNueva) avisarOC(obj);
 }
 function avisarOC(oc){
@@ -635,27 +635,30 @@ function avisarOC(oc){
   const d=getOCDisplay(oc);
   const subj=`Nueva OC ${oc.numero} — revisar y generar OP`;
   const body=`Se cargó una nueva orden de compra para revisar y generar la OP.\n\nOC: ${oc.numero}\nTipo: ${oc.modo}\nCliente: ${d.cliente}\nMedida: ${d.medida}\nKg: ${oc.kgPedido||oc.kgTotal||''}\n\nEntrá a la app para generar la OP.`;
-  window.location.href=`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;
+  const a=document.createElement('a'); a.href=`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`; a.style.display='none'; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),200);
 }
 async function borrarOC(id){ if(!confirm('¿Eliminar esta OC?'))return; DATA.ocs=DATA.ocs.filter(o=>o.id!==id); DATA.ocsEliminadas[id]=nowISO(); closeModal(); render(); await saveData(); toast('OC eliminada'); }
-async function generarOP(ocId){
+let _opPrefill=null, _opReviewOC=null;
+function prepararOP(ocId){
   const oc=DATA.ocs.find(o=>o.id===ocId); if(!oc)return;
   if(oc.modo==='laminado'){
     if(oc.ordenId){ toast('Esta OC ya tiene OP'); return; }
     const r=DATA.recetasLaminado.find(x=>x.id===oc.recetaId);
     const c=oc.calc||(r?calcLaminado(r,oc.kgPedido||0):null);
-    const orden={ id:uid('op'), numero:nextOPNumero(), ot:nextOT('maq-1'), origen:'laminado', cliente:oc.cliente||'', oc:oc.numero||'', maquinaId:'maq-1', formato:'Bobina lámina',
+    _opPrefill={ origen:'laminado', cliente:oc.cliente||'', oc:oc.numero||'', maquinaId:'maq-1', formato:'Bobina lámina',
       productoDesc:`PE ${r?(r.peAncho||''):''}×${r?(r.peEsp||''):''} (lam. ${r?r.cliente:''})`.trim(),
       ancho:r?r.peAncho:null, espesor:r?r.peEsp:null, longitudBobina:r?r.peMts:null, densidad:r?(r.densidad||0.921):0.921, k1:1, pesoCono:c?c.cono:null, bobinaPar:true,
       cantidadBobinas:c?c.nbob:null, cantidadObjetivo:c?Math.round(c.kgTotalPe):(oc.kgPedido||0), unidad:'kg',
-      destino:'Laminación', tipoProducto:'proceso', demandaPet:c?Math.round(c.kgTotalPet):null, longBobPet:r?r.petMts:null, tipoExt:'lamina', fechaInicio:new Date().toISOString().slice(0,10),
+      destino:'Laminación', demandaPet:c?Math.round(c.kgTotalPet):null, longBobPet:r?r.petMts:null, tipoExt:'lamina', fechaInicio:new Date().toISOString().slice(0,10),
       velocMotor:r?r.velocMotor:null, velocTiro:r?r.tiroMod:null, material:r?(r.material||''):'', dinas:r?(r.dinas||null):null, tratadoCE:true, tratadoCI:true,
       t1:r?r.t1:null,t2:r?r.t2:null,t3:r?r.t3:null,t4:r?r.t4:null,t5:r?r.t5:null,t6:r?r.t6:null,t7:r?r.t7:null,t8:r?r.t8:null,t9:r?r.t9:null,
-      calc:c?{gxm:c.gxm,pesoSC:c.pesoNeto,pesoCC:c.pesoBruto,metros:c.metros,nbob:c.nbob,kgTotal:c.kgTotalPe,dur:c.dur}:null,
-      estadoProduccion:'Programada', estadoDestino:'Pendiente', ocId:oc.id, creadoPor:currentUser, createdAt:nowISO(), updatedAt:nowISO() };
-    DATA.ordenes.push(orden); oc.estado='En OP'; oc.ordenId=orden.id; oc.updatedAt=nowISO();
-    await saveData(); toast('OP '+orden.numero+' generada desde '+oc.numero); currentTab='ordenes'; render(); return;
+      estadoProduccion:'Programada', estadoDestino:'Pendiente' };
+    _opReviewOC=oc.id; openOrdenModal(); return;
   }
+  generarOP(ocId);
+}
+async function generarOP(ocId){
+  const oc=DATA.ocs.find(o=>o.id===ocId); if(!oc)return;
   let made=0;
   (oc.items||[]).forEach(it=>{
     if(it.ordenId) return;
@@ -733,12 +736,37 @@ async function pdfOP(id){
     doc.autoTable({ startY:y, theme:'grid', styles:{fontSize:10,cellPadding:2},
       body:[ ['Duración extrusión', durTxt, 'Kg teórico total', c.kgTotal?(Math.round(c.kgTotal)+' kg'):(o.cantidadObjetivo||'—')] ],
       columnStyles:{0:{fontStyle:'bold',cellWidth:44,fillColor:HEAD},2:{fontStyle:'bold',cellWidth:42,fillColor:HEAD}} });
-    y=doc.lastAutoTable.finalY+5;
-    doc.setFontSize(8); doc.text('Colocar etiqueta autoadhesiva con N° de bobina y N° de partida en el cono.',14,y); y+=4;
-    doc.setFontSize(10); doc.text('Registro de bobinas',14,y);
-    doc.autoTable({ startY:y+2, head:[['Fecha','Operario','N° bobina','Peso (kg)','Scrap (kg)']], body:Array.from({length:Math.max(8,c.nbob||8)},()=>['','','','','']), styles:{fontSize:9,minCellHeight:8}, headStyles:{fillColor:[90,90,90]} });
-    if(o.notas){ doc.setFontSize(9); doc.text('Notas: '+o.notas,14,doc.lastAutoTable.finalY+7,{maxWidth:182}); }
+    y=doc.lastAutoTable.finalY+6;
+    doc.setFontSize(8); doc.text('Colocar etiqueta autoadhesiva con N° de bobina y N° de partida en el cono.',14,y);
+    if(o.notas){ doc.setFontSize(9); doc.text('Notas: '+o.notas,14,y+6,{maxWidth:182}); }
     doc.save(`OP_${(o.numero||'s-n').replace(/[^\w-]/g,'')}.pdf`);
+  }catch(e){ alert('No se pudo generar el PDF: '+e.message); }
+}
+async function pdfRegistroBobinas(id){
+  const o=DATA.ordenes.find(x=>x.id===id); if(!o)return; toast('Generando PDF...');
+  try{
+    const jsPDF=await ensureJsPDF(); const doc=new jsPDF(); const m=maqById(o.maquinaId); const c=o.calc||{};
+    pdfLogo(doc);
+    doc.setFontSize(15); doc.text('Registro de bobinas',200,16,{align:'right'});
+    doc.setFontSize(10); doc.text(`${o.numero||''} · OT ${o.ot||'—'}`,200,23,{align:'right'});
+    doc.autoTable({ startY:30, theme:'grid', styles:{fontSize:10,cellPadding:2},
+      body:[['Cliente',o.cliente||'—','Máquina',m?m.nombre:'—'],['Producto',o.productoDesc||'—','Medida',`${o.ancho||'?'}×${o.espesor||'?'} µ`]],
+      columnStyles:{0:{fontStyle:'bold',cellWidth:30,fillColor:[240,253,244]},2:{fontStyle:'bold',cellWidth:30,fillColor:[240,253,244]}} });
+    let y=doc.lastAutoTable.finalY+5;
+    const bob=DATA.producciones.filter(p=>p.ordenId===o.id).sort((a,b)=>(a.timestamp||'').localeCompare(b.timestamp||''));
+    const objetivo=(c.nbob||o.cantidadBobinas||8);
+    const filas=Math.max(objetivo, bob.length)+2;
+    const body=[];
+    for(let i=0;i<filas;i++){ const b=bob[i];
+      body.push([ String(i+1), b?fmtFecha(b.timestamp).split(' ')[0]:'', b?(b.operario||''):'', b?String(b.peso||''):'', b&&b.metros?String(b.metros):'', b&&b.scrap?String(b.scrap):'', '' ]); }
+    doc.autoTable({ startY:y, head:[['N°','Fecha','Operario','Peso (kg)','Metros','Scrap (kg)','Prueba de calidad / Obs.']], body, styles:{fontSize:9,minCellHeight:7}, headStyles:{fillColor:[90,90,90]}, columnStyles:{0:{cellWidth:11,halign:'center'},6:{cellWidth:50}} });
+    y=doc.lastAutoTable.finalY+7;
+    const tot=bob.reduce((a,b)=>a+(+b.peso||0),0), totS=bob.reduce((a,b)=>a+(+b.scrap||0),0);
+    doc.setFontSize(10);
+    doc.text(`Bobinas: ${bob.length}${objetivo?' / '+objetivo:''}`,14,y);
+    doc.text(`Kg total: ${tot.toLocaleString('es-AR')}`,80,y);
+    doc.text(`Scrap: ${totS.toLocaleString('es-AR')} kg`,140,y);
+    doc.save(`REG_${(o.numero||'s-n').replace(/[^\w-]/g,'')}.pdf`);
   }catch(e){ alert('No se pudo generar el PDF: '+e.message); }
 }
 
@@ -854,37 +882,150 @@ async function addCapa(rid){ const r=DATA.recetasCapa.find(x=>x.id===rid); r.cap
 
 function renderOrdenes(v){
   const ords=[...DATA.ordenes].sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+  const pend=DATA.ocs.filter(oc=>!ocOPInfo(oc).done).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
   v.innerHTML=`
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
       <h2 style="flex:1">Órdenes de producción</h2>
       <button class="btn" onclick="openOrdenModal()">＋ Nueva OP</button>
     </div>
+    ${pend.length?`<div class="card" style="margin-bottom:14px;border-left:3px solid var(--amber)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-weight:700;font-size:14px;flex:1">Pendientes de OP · revisar y dar OK</div>
+        <button class="btn-ghost btn-sm" onclick="armarSecuencia()">▦ Armar secuencia (varias)</button>
+      </div>
+      <div class="muted" style="font-size:12px;margin:2px 0 10px">Generá una con "Revisar y generar OP", o tildá varias y "Armar secuencia" para generar todas con un orden de producción.</div>
+      ${pend.map(oc=>{ const d=getOCDisplay(oc); const m=maqById(d.maqId); return `<div class="bobina-row" style="background:var(--bg);cursor:default">
+        <span style="display:flex;align-items:center;gap:8px"><input type="checkbox" class="ocSel" value="${oc.id}" style="width:auto"><span><b>${esc(oc.numero)}</b> · ${esc(d.cliente)} · ${esc(d.medida)} · ${Math.round(d.kg).toLocaleString('es-AR')} kg${m?' · '+esc(m.nombre):''}</span></span>
+        <button class="btn btn-sm" onclick="prepararOP('${oc.id}')">Revisar y generar OP</button>
+      </div>`; }).join('')}
+    </div>`:''}
     <div class="card" style="padding:0;overflow-x:auto">
       ${ords.length?`<table>
-        <thead><tr><th>OP</th><th>Origen</th><th>Máquina</th><th>Producto</th><th>Formato</th><th>Destino</th><th>Producción</th><th></th></tr></thead>
+        <thead><tr><th>OP</th><th>Origen</th><th>Máquina</th><th>Producto</th><th>Destino</th><th>Producción</th><th></th></tr></thead>
         <tbody>${ords.map(o=>{ const m=maqById(o.maquinaId);
-          return `<tr>
-            <td><b>${esc(o.numero)}</b>${o.ot?`<div class="muted" style="font-size:11px">OT ${esc(o.ot)}</div>`:''}<div class="muted" style="font-size:11px">${fmtFecha(o.createdAt)}</div></td>
+          return `<tr style="cursor:pointer" onclick="verOP('${o.id}')">
+            <td><b>${esc(o.numero)}</b>${o.secuencia?` <span class="pill" style="background:var(--green-l);color:var(--green-d)">${o.secuencia}°</span>`:''}${o.ot?`<div class="muted" style="font-size:11px">OT ${esc(o.ot)}</div>`:''}<div class="muted" style="font-size:11px">${fmtFecha(o.createdAt)}</div></td>
             <td>${esc(ORIGENES[o.origen]?.label||o.origen)}${o.oc?`<div class="muted" style="font-size:11px">OC ${esc(o.oc)}</div>`:''}</td>
             <td>${m?`<span class="machine-chip" style="font-size:12px"><span class="machine-dot" style="background:${m.color}"></span>${esc(m.nombre)}</span>`:'—'}</td>
             <td>${esc(o.productoDesc||'—')}<div class="muted" style="font-size:11px">${o.cantidadObjetivo?esc(o.cantidadObjetivo)+' '+esc(o.unidad||'kg'):''}</div></td>
-            <td>${esc(o.formato||'—')}</td>
             <td>${esc(o.destino)} <span class="pill" style="background:${DESTINOS[o.destino]?.tipo==='final'?'var(--amber-l)':'var(--green-l)'};color:${DESTINOS[o.destino]?.tipo==='final'?'var(--amber)':'var(--green-d)'};margin-left:4px">${DESTINOS[o.destino]?.tipo==='final'?'final':'en proceso'}</span></td>
             <td>${pillEstadoProd(o.estadoProduccion)}</td>
-            <td style="white-space:nowrap"><button class="btn-ghost btn-sm" onclick="openOrdenModal('${o.id}')">Ver</button> <button class="btn-ghost btn-sm" onclick="pdfOP('${o.id}')">PDF</button></td>
+            <td style="white-space:nowrap" onclick="event.stopPropagation()"><button class="btn-ghost btn-sm" onclick="openOrdenModal('${o.id}')">Editar</button> <button class="btn-ghost btn-sm" onclick="pdfOP('${o.id}')">PDF OP</button> <button class="btn-ghost btn-sm" onclick="pdfRegistroBobinas('${o.id}')">Reg.</button></td>
           </tr>`; }).join('')}</tbody></table>`
-      :`<div style="padding:40px;text-align:center" class="muted">Todavía no hay órdenes. Apretá <b>Nueva OP</b> para empezar.</div>`}
+      :`<div style="padding:40px;text-align:center" class="muted">Todavía no hay OPs. Revisá una OC pendiente arriba, o creá una con <b>Nueva OP</b>.</div>`}
     </div>`;
 }
+function verOC(oc_id){
+  const oc=DATA.ocs.find(o=>o.id===oc_id); if(!oc)return; const d=getOCDisplay(oc); const m=maqById(d.maqId);
+  const rw=(k,val)=>`<div style="display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid #f1f5f9"><span class="muted">${k}</span><b style="text-align:right">${val}</b></div>`;
+  let extra='';
+  if(oc.modo==='laminado'){ const r=DATA.recetasLaminado.find(x=>x.id===oc.recetaId); const c=oc.calc||{};
+    extra=rw('Medida PE', r?`${r.peAncho||'?'}×${r.peEsp||'?'} µ`:'—')+rw('Cant. bobinas (aprox)', c.nbob||'—')+rw('Kg PE (aprox)', c.kgTotalPe?Math.round(c.kgTotalPe).toLocaleString('es-AR')+' kg':'—')+rw('PET (info)', r?`${r.petAncho||'?'}×${r.petEsp||'?'}`:'—');
+  } else { extra=(oc.items||[]).map(it=>{ const tp=DATA.tiposProducto.find(t=>t.id===it.tipoProductoId); return rw(esc((tp?tp.nombre:'')+' '+(it.ancho||'')+'×'+(it.espesor||'')), (it.cantidadBobinas||0)+' bob · '+Math.round(it.kgTotal||0)+' kg'); }).join(''); }
+  $('modalRoot').innerHTML=`<div class="modal-bg" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;margin-bottom:6px"><h3 style="flex:1">${esc(oc.numero)} · ${esc(d.cliente)}</h3>${ocEstadoPill(oc)}<button class="btn-ghost btn-sm" onclick="closeModal()" style="margin-left:8px">✕</button></div>
+    <div class="muted" style="font-size:12px;margin-bottom:10px">${oc.modo==='laminado'?'Laminado PET/PE':'Directo'} · ${fmtFecha(oc.createdAt)}${ocOPNumeros(oc)?' · OP '+esc(ocOPNumeros(oc)):' · sin OP'}</div>
+    <div style="font-size:13px">
+      ${rw('Producto', esc(d.producto))}
+      ${rw('Máquina', m?esc(m.nombre):'—')}
+      ${rw('Kg pedido', Math.round(d.kg).toLocaleString('es-AR')+' kg')}
+      ${extra}
+      ${oc.notas?rw('Notas', esc(oc.notas)):''}
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px"><div style="flex:1"></div>
+      <button class="btn-ghost" onclick="openOCModal('${oc.id}')">Editar</button>
+      <button class="btn-ghost" onclick="pdfOC('${oc.id}')">PDF</button>
+    </div>
+  </div></div>`;
+}
+function verOP(id){
+  const o=DATA.ordenes.find(x=>x.id===id); if(!o)return; const m=maqById(o.maquinaId); const c=o.calc||{};
+  const f=(n,d=2)=>(n||n===0)?(+n).toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
+  const temps=[1,2,3,4,5,6,7,8,9].map(i=>o['t'+i]!=null?o['t'+i]:'—').join(' · ');
+  const durTxt=c.dur?(Math.floor(c.dur)+' hs '+Math.round((c.dur-Math.floor(c.dur))*60)+' min'):'—';
+  const rw=(k,val)=>`<div style="display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid #f1f5f9"><span class="muted">${k}</span><b style="text-align:right">${val}</b></div>`;
+  $('modalRoot').innerHTML=`<div class="modal-bg" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;margin-bottom:6px"><h3 style="flex:1">${esc(o.numero)} · ${esc(o.cliente||'')}</h3>${pillEstadoProd(o.estadoProduccion)}<button class="btn-ghost btn-sm" onclick="closeModal()" style="margin-left:8px">✕</button></div>
+    <div class="muted" style="font-size:12px;margin-bottom:10px">${esc(o.productoDesc||'')} · ${m?esc(m.nombre):''} · OT ${esc(o.ot||'—')}</div>
+    <div style="font-size:13px">
+      ${rw('Fecha extrusión', fmtFecha(o.fechaInicio||o.createdAt))}
+      ${rw('Tipo extrusión', o.tipoExt==='tubo'?'Tubo':'Lámina')}
+      ${rw('Ancho × Espesor', `${o.ancho||'?'} × ${o.espesor||'?'} µ`)}
+      ${rw('Mts / bobina', o.longitudBobina||'—')}
+      ${rw('Cantidad de bobinas', (c.nbob||o.cantidadBobinas)||'—')}
+      ${rw('Peso bob. s/cono', f(c.pesoSC,3)+' kg')}
+      ${rw('Peso bob. c/cono', f(c.pesoCC,3)+' kg')}
+      ${rw('Kg teórico total', c.kgTotal?Math.round(c.kgTotal).toLocaleString('es-AR')+' kg':'—')}
+      ${rw('Duración', durTxt)}
+      ${rw('Veloc. motor / tiro', `${o.velocMotor||'—'} / ${o.velocTiro||'—'}`)}
+      ${rw('Temperaturas T1–T9', temps)}
+      ${rw('Material', esc(o.material||'—'))}
+      ${rw('Tratado', ([o.tratadoCE?'CE':null,o.tratadoCI?'CI':null,o.tratado2C?'2C':null].filter(Boolean).join(' ')||'—')+(o.dinas?` · ${o.dinas} dinas`:''))}
+      ${rw('Long. bob. PET (info)', o.longBobPet||'—')}
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px"><div style="flex:1"></div>
+      <button class="btn-ghost" onclick="openOrdenModal('${o.id}')">Editar</button>
+      <button class="btn-ghost" onclick="pdfOP('${o.id}')">PDF OP</button>
+      <button class="btn-ghost" onclick="pdfRegistroBobinas('${o.id}')">PDF registro</button>
+    </div>
+  </div></div>`;
+}
 
+let _secOrder=[];
+function armarSecuencia(){
+  const ids=[...document.querySelectorAll('.ocSel:checked')].map(c=>c.value);
+  if(!ids.length){ toast('Tildá al menos una OC'); return; }
+  _secOrder=ids; renderSecuenciaModal();
+}
+function moveSec(i,dir){ const j=i+dir; if(j<0||j>=_secOrder.length)return; const t=_secOrder[i]; _secOrder[i]=_secOrder[j]; _secOrder[j]=t; renderSecuenciaModal(); }
+function renderSecuenciaModal(){
+  const rows=_secOrder.map((id,i)=>{ const oc=DATA.ocs.find(o=>o.id===id); const d=oc?getOCDisplay(oc):null; return `<div class="bobina-row" style="background:var(--bg)">
+    <span><b style="color:var(--green-d)">${i+1}°</b> · ${oc?esc(oc.numero):'?'} · ${d?esc(d.cliente):''} · ${d?esc(d.medida):''} · ${d?Math.round(d.kg).toLocaleString('es-AR'):''} kg</span>
+    <span style="white-space:nowrap"><button class="btn-ghost btn-sm" onclick="moveSec(${i},-1)" ${i===0?'disabled':''}>▲</button> <button class="btn-ghost btn-sm" onclick="moveSec(${i},1)" ${i===_secOrder.length-1?'disabled':''}>▼</button></span>
+  </div>`; }).join('');
+  $('modalRoot').innerHTML=`<div class="modal-bg" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;margin-bottom:8px"><h3 style="flex:1">Secuencia de producción</h3><button class="btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="muted" style="font-size:12px;margin-bottom:10px">Ordená con ▲▼ cuál va primero. Al confirmar se generan las OPs en ese orden y quedan en cola para la tablet.</div>
+    ${rows}
+    <div style="display:flex;gap:10px;margin-top:14px"><div style="flex:1"></div><button class="btn" onclick="confirmarSecuencia()">Generar ${_secOrder.length} OP en secuencia</button></div>
+  </div></div>`;
+}
+async function confirmarSecuencia(){
+  let n=0, seq=0;
+  for(const id of _secOrder){ const oc=DATA.ocs.find(o=>o.id===id); if(!oc) continue; seq++;
+    if(oc.modo==='laminado'){
+      if(oc.ordenId) continue;
+      const r=DATA.recetasLaminado.find(x=>x.id===oc.recetaId);
+      const c=oc.calc||(r?calcLaminado(r,oc.kgPedido||0):null);
+      const orden={ id:uid('op'), numero:nextOPNumero(), ot:nextOT('maq-1'), origen:'laminado', cliente:oc.cliente||'', oc:oc.numero||'', maquinaId:'maq-1', formato:'Bobina lámina', secuencia:seq,
+        productoDesc:`PE ${r?(r.peAncho||''):''}×${r?(r.peEsp||''):''} (lam. ${r?r.cliente:''})`.trim(),
+        ancho:r?r.peAncho:null, espesor:r?r.peEsp:null, longitudBobina:r?r.peMts:null, densidad:r?(r.densidad||0.921):0.921, k1:1, pesoCono:c?c.cono:null, bobinaPar:true,
+        cantidadBobinas:c?c.nbob:null, cantidadObjetivo:c?Math.round(c.kgTotalPe):(oc.kgPedido||0), unidad:'kg',
+        destino:'Laminación', tipoProducto:'proceso', demandaPet:c?Math.round(c.kgTotalPet):null, longBobPet:r?r.petMts:null, tipoExt:'lamina', fechaInicio:new Date().toISOString().slice(0,10),
+        velocMotor:r?r.velocMotor:null, velocTiro:r?r.tiroMod:null, material:r?(r.material||''):'', dinas:r?(r.dinas||null):null, tratadoCE:true, tratadoCI:true,
+        t1:r?r.t1:null,t2:r?r.t2:null,t3:r?r.t3:null,t4:r?r.t4:null,t5:r?r.t5:null,t6:r?r.t6:null,t7:r?r.t7:null,t8:r?r.t8:null,t9:r?r.t9:null,
+        calc:c?{gxm:c.gxm,pesoSC:c.pesoNeto,pesoCC:c.pesoBruto,metros:c.metros,nbob:c.nbob,kgTotal:c.kgTotalPe,dur:c.dur}:null,
+        estadoProduccion:'En cola', estadoDestino:'Pendiente', ocId:oc.id, creadoPor:currentUser, createdAt:nowISO(), updatedAt:nowISO() };
+      DATA.ordenes.push(orden); oc.estado='En OP'; oc.ordenId=orden.id; oc.updatedAt=nowISO(); n++;
+    } else {
+      (oc.items||[]).forEach(it=>{ if(it.ordenId)return; const tp=DATA.tiposProducto.find(t=>t.id===it.tipoProductoId); const dest= oc.modo==='interno'?'Uso interno':((tp&&tp.destinoDefault)||'Venta directa'); const origen= oc.modo==='interno'?'interno':(dest==='Laminación'?'laminado':'venta');
+        const orden={ id:uid('op'), numero:nextOPNumero(), ot:nextOT(it.maquinaId), origen, cliente:it.cliente||'', oc:oc.numero||'', maquinaId:it.maquinaId, formato:'Bobina lámina', secuencia:seq, productoDesc:`${tp?tp.nombre:''} ${it.ancho||''}×${it.espesor||''}`.trim(), ancho:it.ancho, espesor:it.espesor, cantidadBobinas:it.cantidadBobinas, cantidadObjetivo:it.kgTotal, unidad:'kg', destino:dest, tipoProducto:DESTINOS[dest]?DESTINOS[dest].tipo:'final', estadoProduccion:'En cola', estadoDestino:'Pendiente', ocId:oc.id, creadoPor:currentUser, createdAt:nowISO(), updatedAt:nowISO() };
+        DATA.ordenes.push(orden); it.ordenId=orden.id; n++; });
+      oc.estado='En OP'; oc.updatedAt=nowISO();
+    }
+  }
+  _secOrder=[]; closeModal(); await saveData(); toast(n+' OP generadas en secuencia'); currentTab='ordenes'; render();
+}
 function openOrdenModal(id){
   const ed=id?DATA.ordenes.find(o=>o.id===id):null;
-  const o=ed||{ origen:'laminado', destino:'Laminación', formato:'Bobina lámina', unidad:'kg', estadoProduccion:'Programada', estadoDestino:'Pendiente' };
+  const pre=(!ed && _opPrefill)?_opPrefill:null;
+  if(!pre && !ed) _opReviewOC=null;
+  const o=ed||pre||{ origen:'laminado', destino:'Laminación', formato:'Bobina lámina', unidad:'kg', estadoProduccion:'Programada', estadoDestino:'Pendiente' };
   const orig=ORIGENES[o.origen];
   const tipo=DESTINOS[o.destino]?.tipo||'proceso';
   const root=$('modalRoot');
-  root.innerHTML=`<div class="modal-bg"><div class="modal">
-    <div style="display:flex;align-items:center;margin-bottom:16px"><h3 style="flex:1">${ed?'Orden '+esc(ed.numero):'Nueva orden de producción'}</h3><button class="btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
+  root.innerHTML=`<div class="modal-bg"><div class="modal" data-pre="${pre?'1':''}">
+    <div style="display:flex;align-items:center;margin-bottom:16px"><h3 style="flex:1">${ed?'Orden '+esc(ed.numero):(pre?'Revisar y generar OP'+(pre.oc?' — OC '+esc(pre.oc):''):'Nueva orden de producción')}</h3><button class="btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
 
     <div class="field"><label>Origen de la orden</label>
       <select id="o_origen" onchange="onOrigenChange()">${Object.entries(ORIGENES).map(([k,val])=>`<option value="${k}" ${o.origen===k?'selected':''}>${val.label}</option>`).join('')}</select>
@@ -980,9 +1121,10 @@ function openOrdenModal(id){
       <div style="flex:1"></div>
       <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
       ${ed?`<button class="btn-ghost" onclick="pdfOP('${ed.id}')">PDF</button>`:''}
-      <button class="btn" onclick="guardarOrden('${ed?ed.id:''}')">${ed?'Guardar cambios':'Crear orden'}</button>
+      <button class="btn" onclick="guardarOrden('${ed?ed.id:''}')">${ed?'Guardar cambios':(_opReviewOC?'✓ Dar OK y generar OP':'Crear orden')}</button>
     </div>
   </div></div>`;
+  _opPrefill=null;
   onDestinoChange(); calcOPlive();
 }
 function onOrigenChange(){
@@ -1088,7 +1230,7 @@ async function guardarOrden(id){
     updatedAt:nowISO()
   };
   const _maqC=maqById(obj.maquinaId);
-  obj.calc=calcOP({ densidad:obj.densidad, ancho:obj.ancho, espesor:obj.espesor, k1:obj.k1, longitud:obj.longitudBobina, pesoCono:obj.pesoCono, metros:obj.metrosPedidos, kgObj:obj.cantidadObjetivo, bobinaPar:obj.bobinaPar, kgHora:_maqC?_maqC.kgHora:null });
+  obj.calc=calcOP({ densidad:obj.densidad, ancho:obj.ancho, espesor:obj.espesor, k1:obj.k1, longitud:obj.longitudBobina, pesoCono:obj.pesoCono, metros:obj.metrosPedidos, kgObj:obj.cantidadObjetivo, bobinaPar:obj.bobinaPar, kgHora:_maqC?_maqC.kgHora:null, perimetro:origen==='laminado'?0.618:0, tiro:origen==='laminado'?(obj.velocTiro||0):0 });
   if(id){
     const o=DATA.ordenes.find(x=>x.id===id);
     obj.estadoProduccion=$('o_estProd').value; obj.estadoDestino=$('o_estDest').value;
@@ -1097,6 +1239,7 @@ async function guardarOrden(id){
     if(!obj.ot) obj.ot=nextOT(obj.maquinaId);
     Object.assign(obj,{ id:uid('op'), numero:nextOPNumero(), estadoProduccion:'Programada', estadoDestino:'Pendiente', creadoPor:currentUser, createdAt:nowISO() });
     DATA.ordenes.push(obj);
+    if(_opReviewOC){ const oc=DATA.ocs.find(x=>x.id===_opReviewOC); if(oc){ oc.ordenId=obj.id; oc.estado='En OP'; oc.updatedAt=nowISO(); } _opReviewOC=null; closeModal(); await saveData(); toast('OP '+obj.numero+' generada · en cola para la tablet'); pdfOP(obj.id); currentTab='ordenes'; render(); return; }
   }
   closeModal(); render(); await saveData(); toast('Orden guardada');
 }
@@ -1106,7 +1249,7 @@ async function borrarOrden(id){
   DATA.ordenesEliminadas[id]=nowISO();
   closeModal(); render(); await saveData(); toast('Orden eliminada');
 }
-function closeModal(){ $('modalRoot').innerHTML=''; }
+function closeModal(){ _opReviewOC=null; _opPrefill=null; $('modalRoot').innerHTML=''; }
 
 function renderProduccion(v){
   const prods=[...DATA.producciones].sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
@@ -1414,7 +1557,7 @@ function renderTablet(){
   // órdenes en producción = sesiones abiertas
   const activas=DATA.ordenes.filter(o=>o.estadoProduccion==='En producción');
   // también las que están "En cola"/"Programada" se pueden arrancar
-  const arrancables=DATA.ordenes.filter(o=>o.estadoProduccion==='En cola'||o.estadoProduccion==='Programada');
+  const arrancables=DATA.ordenes.filter(o=>o.estadoProduccion==='En cola'||o.estadoProduccion==='Programada').sort((a,b)=>(a.secuencia||999)-(b.secuencia||999));
   t.innerHTML=`
     <div class="tab-head">
       <div style="display:flex;align-items:center;gap:10px"><span style="background:#fff;border-radius:9px;padding:5px 9px;display:inline-flex"><img src="${LOGO_FULL}" style="height:22px;display:block"></span><span style="color:#fff;font-weight:700;font-size:16px">Tablet · Extrusión</span></div>
@@ -1434,7 +1577,7 @@ function renderTablet(){
     </div>
     ${arrancables.length?`<div style="max-width:760px;margin:22px auto 0">
       <div style="color:#94a3b8;font-size:13px;margin-bottom:8px;font-weight:600">EN COLA — tocá para arrancar</div>
-      ${arrancables.map(o=>{ const m=maqById(o.maquinaId); return `<div class="bobina-row" style="cursor:pointer" onclick="arrancarOrden('${o.id}')"><span><span class="machine-dot" style="display:inline-block;background:${m?.color}"></span> ${esc(m?.nombre||'?')} · ${esc(o.numero)}${o.productoDesc?' · '+esc(o.productoDesc):''}</span><span style="color:#22c55e;font-weight:700">▶ Arrancar</span></div>`; }).join('')}
+      ${arrancables.map(o=>{ const m=maqById(o.maquinaId); return `<div class="bobina-row" style="cursor:pointer" onclick="arrancarOrden('${o.id}')"><span>${o.secuencia?`<b style="color:#22c55e">${o.secuencia}°</b> `:''}<span class="machine-dot" style="display:inline-block;background:${m?.color}"></span> ${esc(m?.nombre||'?')} · ${esc(o.numero)}${o.productoDesc?' · '+esc(o.productoDesc):''}</span><span style="color:#22c55e;font-weight:700">▶ Arrancar</span></div>`; }).join('')}
     </div>`:''}`;
 }
 async function arrancarOrden(id){ const o=DATA.ordenes.find(x=>x.id===id); o.estadoProduccion='En producción'; o.updatedAt=nowISO(); await saveData(); renderTablet(); }
@@ -1456,6 +1599,23 @@ function renderTabletSession(t){
         <div style="flex:1;background:#0f172a;border-radius:10px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800">${bobinas.length}</div><div style="font-size:12px;color:#94a3b8">bobinas</div></div>
         <div style="flex:1;background:#0f172a;border-radius:10px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800">${totalKg.toLocaleString('es-AR')}</div><div style="font-size:12px;color:#94a3b8">kg total${o.cantidadObjetivo?` / ${o.cantidadObjetivo}`:''}</div></div>
       </div>
+      <div style="background:#0f172a;border-radius:10px;padding:14px;margin-bottom:16px">
+        <div style="color:#22c55e;font-weight:700;font-size:13px;margin-bottom:8px">DATOS DE LA OP — para setear la máquina</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:13px;color:#cbd5e1">
+          <div>Ancho: <b style="color:#fff">${o.ancho||'—'} mm</b></div>
+          <div>Espesor: <b style="color:#fff">${o.espesor||'—'} µ</b></div>
+          <div>Mts/bobina: <b style="color:#fff">${o.longitudBobina||'—'}</b></div>
+          <div>Bobinas: <b style="color:#fff">${(o.calc&&o.calc.nbob)||o.cantidadBobinas||'—'}</b></div>
+          <div>Veloc. motor: <b style="color:#fff">${o.velocMotor||'—'}</b></div>
+          <div>Veloc. tiro: <b style="color:#fff">${o.velocTiro||'—'}</b></div>
+          <div>Tipo: <b style="color:#fff">${o.tipoExt==='tubo'?'Tubo':'Lámina'}</b></div>
+          <div>Peso bob.: <b style="color:#fff">${o.calc&&o.calc.pesoSC?(+o.calc.pesoSC).toFixed(1):'—'} kg</b></div>
+          <div>Material: <b style="color:#fff">${esc(o.material||'—')}</b></div>
+          <div>Tratado: <b style="color:#fff">${[o.tratadoCE?'CE':null,o.tratadoCI?'CI':null,o.tratado2C?'2C':null].filter(Boolean).join(' ')||'—'}${o.dinas?` · ${o.dinas}d`:''}</b></div>
+        </div>
+        <div style="margin-top:8px;color:#cbd5e1;font-size:13px">Temperaturas: <b style="color:#fff">${[1,2,3,4,5,6,7,8,9].map(i=>o['t'+i]!=null?o['t'+i]:'—').join(' · ')}</b></div>
+        <div style="margin-top:3px;color:#64748b;font-size:11px">Tolva T1-2 · Tornillo T3-5 · Adaptador T6-7 · Cabezal T8-9${o.longBobPet?` · Long. bob. PET ${o.longBobPet} m`:''}</div>
+      </div>
       <div class="field2">
         <div><label style="color:#94a3b8">Peso (kg)</label><input id="b_peso" type="number" inputmode="decimal" placeholder="0"></div>
         <div><label style="color:#94a3b8">Metros</label><input id="b_metros" type="number" inputmode="decimal" placeholder="opcional"></div>
@@ -1469,6 +1629,7 @@ function renderTabletSession(t){
         <div></div>
       </div>
       <button class="big-btn" onclick="cargarBobina('${o.id}')">＋ Cargar bobina</button>
+      <button onclick="pdfRegistroBobinas('${o.id}')" style="width:100%;margin-top:10px;background:#1e293b;color:#cbd5e1;padding:11px;border:none;border-radius:8px;font-weight:600">📄 PDF registro de bobinas</button>
       <button onclick="terminarOrden('${o.id}')" style="width:100%;margin-top:10px;background:none;color:#94a3b8;padding:10px;font-weight:600">Terminar orden</button>
       ${bobinas.length?`<div style="margin-top:18px"><div style="color:#94a3b8;font-size:13px;margin-bottom:8px;font-weight:600">CARGADAS</div>${bobinas.map(b=>`<div class="bobina-row"><span>${esc(b.peso)} kg ${b.metros?`· ${esc(b.metros)} m`:''}${b.scrap?` · <span style="color:#f59e0b">scrap ${esc(b.scrap)}kg</span>`:''}</span><span style="color:#94a3b8">${esc(b.operario||'')} · ${fmtFecha(b.timestamp).split(' ')[1]}</span></div>`).join('')}</div>`:''}
     </div>
