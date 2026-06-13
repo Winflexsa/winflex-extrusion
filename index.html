@@ -53,6 +53,7 @@
   .sync.error .dot{background:var(--red)} .sync.error{color:var(--red);background:var(--red-l)}
   .sync.syncing .dot{background:var(--amber)} .sync.syncing{color:var(--amber);background:var(--amber-l)}
   nav{max-width:1080px;margin:0 auto;padding:0 18px;display:flex;gap:4px;overflow-x:auto}
+body.modo-modulo #nav{display:none}
   nav button{padding:11px 14px;background:none;color:var(--muted);font-weight:600;border-bottom:2px solid transparent;white-space:nowrap;font-size:14px}
   nav button.active{color:var(--green-d);border-bottom-color:var(--green)}
   main{max-width:1080px;margin:0 auto;padding:20px 18px 60px}
@@ -392,10 +393,10 @@ async function createGist(token){
 function doLogin(){
   const pin=$('pinInput').value.trim();
   const entry=DATA&&DATA.config.pins[pin];
-  if(entry){ currentUser=pinName(entry); currentRole=pinRol(entry); $('loginErr').textContent=''; $('login').classList.add('hidden'); $('app').classList.remove('hidden'); render(); }
+  if(entry){ currentUser=pinName(entry); currentRole=pinRol(entry); $('loginErr').textContent=''; try{sessionStorage.setItem('winflex-ext-pin',pin);}catch(e){} $('login').classList.add('hidden'); $('app').classList.remove('hidden'); render(); _aplicarVentanaModulo(); }
   else { $('loginErr').textContent='PIN incorrecto'; $('pinInput').value=''; }
 }
-function logout(){ currentUser=''; $('app').classList.add('hidden'); $('tablet').classList.add('hidden'); $('login').classList.remove('hidden'); $('pinInput').value=''; }
+function logout(){ try{sessionStorage.removeItem('winflex-ext-pin');}catch(e){} currentUser=''; $('app').classList.add('hidden'); $('tablet').classList.add('hidden'); $('login').classList.remove('hidden'); $('pinInput').value=''; }
 $('pinInput')&&$('pinInput').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
 
 /* =========================================================
@@ -413,7 +414,39 @@ function render(){
   const v=$('view');
   ({dashboard:renderDashboard,pedidos:renderPedidos,ordenes:renderOrdenes,produccion:renderProduccion,stock:renderStock,cronograma:renderCronograma,catalogos:renderCatalogos,analisis:renderAnalisis,config:renderConfig}[currentTab]||renderDashboard)(v);
 }
-function go(t){ currentTab=t; render(); }
+// ── NAVEGACIÓN POR VENTANAS (mismo sistema que Sueldos/Horas) ──────
+const MODULOS={dashboard:'Tablero',pedidos:'Pedidos',ordenes:'Órdenes',produccion:'Producción',stock:'Stock',cronograma:'Cronograma',catalogos:'Catálogos',analisis:'Análisis',config:'Config'};
+const _paramTab=(function(){try{return new URLSearchParams(location.search).get('tab');}catch(_){return null;}})();
+const MODULO_VENTANA=(_paramTab&&MODULOS[_paramTab])?_paramTab:null;
+const ES_HIJA=!!MODULO_VENTANA;
+function navegarA(t){
+  if(!MODULOS[t])return;
+  if(document.body.classList.contains('modo-modulo')&&t!==MODULO_VENTANA){document.body.classList.remove('modo-modulo');}
+  currentTab=t; render();
+}
+function abrirModulo(t){
+  if(!MODULOS[t])return;
+  if(ES_HIJA&&t===MODULO_VENTANA)return;
+  try{
+    const aw=(window.screen&&screen.availWidth)||1280,ah=(window.screen&&screen.availHeight)||800;
+    const ww=Math.min(1280,Math.round(aw*0.88)),wh=Math.min(900,Math.round(ah*0.92));
+    const idx=Object.keys(MODULOS).indexOf(t),off=(idx%6)*28;
+    const left=Math.max(0,Math.round((aw-ww)/2)+off-70),top=Math.max(0,Math.round((ah-wh)/2)+off-40);
+    const feats=`popup=yes,toolbar=no,location=no,menubar=no,status=no,resizable=yes,scrollbars=yes,width=${ww},height=${wh},left=${left},top=${top}`;
+    const w=window.open('./index.html?tab='+encodeURIComponent(t),'winflexext_'+t,feats);
+    if(w){try{w.focus();}catch(_){ } return;}
+  }catch(_){}
+  navegarA(t);
+}
+// Ventana dedicada a un módulo: oculta el nav y posiciona el módulo.
+function _aplicarVentanaModulo(){
+  if(!ES_HIJA)return;
+  document.body.classList.add('modo-modulo');
+  try{document.title=(MODULOS[MODULO_VENTANA]||'')+' · Extrusión';}catch(e){}
+  navegarA(MODULO_VENTANA);
+}
+// Compatibilidad: todas las llamadas a go(...) abren ahora una ventana.
+function go(t){ return abrirModulo(t); }
 
 function renderDashboard(v){
   const ords=DATA.ordenes;
@@ -1654,7 +1687,18 @@ async function terminarOrden(id){
    ARRANQUE
    ========================================================= */
 applyBranding();
-loadData().then(()=>{ applyBranding(); });
+loadData().then(()=>{
+  applyBranding();
+  try{
+    const pin=sessionStorage.getItem('winflex-ext-pin');
+    const entry=pin&&DATA&&DATA.config&&DATA.config.pins&&DATA.config.pins[pin];
+    if(entry){
+      currentUser=pinName(entry); currentRole=pinRol(entry);
+      $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+      render(); _aplicarVentanaModulo();
+    }
+  }catch(e){}
+});
 </script>
 </body>
 </html>
