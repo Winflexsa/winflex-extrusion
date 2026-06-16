@@ -207,7 +207,7 @@ function seedData(){
       operarios:[],
       pesoBobinaStd:20,
       emailsAviso:'',
-      densPET:1.38, densPE:0.92,
+      densPET:1.35, densPE:0.92,
       conoPesoRef:4.20, conoLargoRef:2000
     },
     maquinas:[
@@ -369,6 +369,7 @@ function migrate(d){
   const s=seedData();
   d.schemaVersion=d.schemaVersion||1;
   d.config=Object.assign({},s.config,d.config||{});
+  if(d.config.densPET===1.38) d.config.densPET=1.35; // corrección densidad PET (antes 1.38, real 1.35)
   ['maquinas','materiasPrimas','formatos','productos','tiposProducto','recetasLaminado','clientes','recetasCapa','ordenes','ocs','producciones'].forEach(k=>{ if(!Array.isArray(d[k])) d[k]=s[k]; });
   if(!d.ordenesEliminadas) d.ordenesEliminadas={};
   if(!d.ocsEliminadas) d.ocsEliminadas={};
@@ -528,8 +529,9 @@ function calcLaminado(r,kg){
   const gxm=(r.peAncho&&r.peEsp)?(dens*r.peAncho*r.peEsp*k1/1000):0;
   const longitud=r.peMts||0;
   const base = r.prodPeso || r.pePeso || 0;
-  let nbob = (base&&kg)? Math.ceil(kg/base) : 0;
-  if(nbob && nbob%2) nbob++;
+  const nbobRaw = (base&&kg)? kg/base : 0;          // bobinas teóricas (fraccional)
+  let nbob = nbobRaw? Math.ceil(nbobRaw) : 0;
+  if(nbob && nbob%2) nbob++;                         // se extruye en jumbo y se corta en pares
   const cono = conoForAncho(r.peAncho);
   const pesoNeto = (gxm&&longitud)? +(gxm*longitud/1000).toFixed(3) : (r.pePeso||0);
   const pesoBruto = +(pesoNeto + cono).toFixed(3);
@@ -539,8 +541,30 @@ function calcLaminado(r,kg){
   const peri=r.perimetro||0.618, tiro=r.tiroMod||0;
   const prodHora2=(peri&&tiro&&gxm)?(peri*tiro*gxm*0.06*2):0;
   const dur=(prodHora2&&kgTotalPe)?kgTotalPe/prodHora2:0;
-  return { nbob, cono, pesoNeto, pesoBruto, metros, kgTotalPe, kgTotalPet, gxm, longitud, dur };
+  // --- Desperdicio por redondeo a bobinas pares ---
+  const kgLamProd = +(nbob * base).toFixed(1);       // laminado terminado que sale (kg)
+  const despKg = base? +(kgLamProd - kg).toFixed(1) : 0;
+  const despPct = kgLamProd? +(despKg/kgLamProd*100).toFixed(2) : 0;
+  // --- Cross-check gramaje PET (densidad real 1.35) vs petPeso de ficha ---
+  const densPet = (window.DATA&&DATA.config&&DATA.config.densPET)||1.35;
+  const gxmPet = (r.petAncho&&r.petEsp)? +(densPet*r.petAncho*r.petEsp/1000).toFixed(3) : 0;
+  const petPesoCalc = (gxmPet&&r.petMts)? +(gxmPet*r.petMts/1000).toFixed(2) : 0;
+  const petPesoFicha = r.petPeso||0;
+  const petDifPct = (petPesoCalc&&petPesoFicha)? +(Math.abs(petPesoCalc-petPesoFicha)/petPesoFicha*100).toFixed(1) : 0;
+  const petFlag = petPesoCalc&&petPesoFicha&&petDifPct>5;   // diferencia >5% => revisar ficha
+  // --- Split coherente de material por gramaje del laminado TERMINADO (ancho final) ---
+  const gPetFin=(r.prodAncho&&r.petEsp)? densPet*r.prodAncho*r.petEsp/1000 : 0;
+  const gPeFin =(r.prodAncho&&r.peEsp)?  dens   *r.prodAncho*r.peEsp /1000 : 0;
+  const gTotFin=gPetFin+gPeFin;
+  const metrosLam=(gTotFin&&kgLamProd)? +(kgLamProd*1000/gTotFin).toFixed(0) : 0;  // metros reales de laminado
+  const kgPetNec=(gPetFin&&metrosLam)? +(gPetFin*metrosLam/1000).toFixed(1) : 0;
+  const kgPeNec =(gPeFin&&metrosLam)?  +(gPeFin *metrosLam/1000).toFixed(1) : 0;
+  return { nbob, nbobRaw, cono, pesoNeto, pesoBruto, metros, kgTotalPe, kgTotalPet, gxm, longitud, dur,
+           base, kgLamProd, despKg, despPct, gxmPet, petPesoCalc, petPesoFicha, petDifPct, petFlag,
+           metrosLam, kgPetNec, kgPeNec };
 }
+function despColorLam(pct){ pct=Math.abs(pct); return pct<3?'var(--green-d)':pct<7?'var(--amber)':'var(--red)'; }
+function despBgLam(pct){ pct=Math.abs(pct); return pct<3?'var(--green-l)':pct<7?'var(--amber-l)':'var(--red-l)'; }
 function clientesDatalist(){ return '<datalist id="clientesDatalist">'+(DATA.clientes||[]).map(c=>`<option value="${esc(c.nombre)}"></option>`).join('')+'</datalist>'; }
 function getOCDisplay(oc){
   if(oc.modo==='laminado'){ const r=DATA.recetasLaminado.find(x=>x.id===oc.recetaId); const c=oc.calc;
@@ -636,8 +660,36 @@ function recalcOCLam(){
   const kg=+document.getElementById('oc_kgped').value||0;
   const box=document.getElementById('oc_lamRes'); if(!box) return;
   if(!r){ box.textContent=''; return; }
-  const c=kg?calcLaminado(r,kg):null;
-  box.innerHTML=`PE ${r.peAncho||'?'}×${r.peEsp||'?'}${c&&c.nbob?` · ≈ ${c.nbob} bobinas · ${Math.round(c.kgTotalPe)} kg de PE`:''}. El detalle completo se calcula al generar la OP.`;
+  if(!kg){ box.innerHTML=`PE ${r.peAncho||'?'}×${r.peEsp||'?'} · ingresá los kg del pedido para ver el cálculo.`; return; }
+  const c=calcLaminado(r,kg);
+  const durTxt=c.dur?(Math.floor(c.dur)+' hs '+Math.round((c.dur-Math.floor(c.dur))*60)+' min'):'—';
+  const par = c.nbobRaw && (Math.ceil(c.nbobRaw)%2) ? ' (redondeado a par)' : (c.nbobRaw&&!Number.isInteger(c.nbobRaw)?' (redondeado ↑)':'');
+  const dc=despColorLam(c.despPct), dbg=despBgLam(c.despPct);
+  const mb=(l,v)=>`<div style="background:var(--surface2);border-radius:8px;padding:8px 10px;text-align:center"><div style="font-size:10px;color:var(--muted)">${l}</div><div style="font-size:14px;font-weight:700">${v}</div></div>`;
+  let html=`<div class="card" style="padding:12px;margin:0;background:var(--surface)">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Cálculo del pedido — PE ${r.peAncho||'?'}×${r.peEsp||'?'} / PET ${r.petAncho||'?'}×${r.petEsp||'?'}</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px">
+      ${mb('Bobinas', (c.nbob||0)+par)}
+      ${mb('Metros laminado', c.metrosLam?c.metrosLam.toLocaleString('es-AR')+' m':'—')}
+      ${mb('Kg PET nec.', c.kgPetNec?c.kgPetNec.toLocaleString('es-AR')+' kg':'—')}
+      ${mb('Kg PE nec.', c.kgPeNec?c.kgPeNec.toLocaleString('es-AR')+' kg':'—')}
+      ${mb('Duración', durTxt)}
+    </div>`;
+  if(c.base){
+    html+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+      <div style="background:var(--surface2);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--muted)">Kg pedido (cliente)</div><div style="font-size:14px;font-weight:700">${kg.toLocaleString('es-AR')} kg</div></div>
+      <div style="background:var(--surface2);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--muted)">Kg laminado a producir</div><div style="font-size:14px;font-weight:700">${c.kgLamProd.toLocaleString('es-AR')} kg <span style="font-weight:400;color:var(--muted)">(${c.nbob} × ${c.base} kg)</span></div></div>
+    </div>
+    <div style="background:${dbg};border:1px solid ${dc};border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;color:var(--muted)">Desperdicio por redondeo a bobinas pares</span>
+      <span style="font-weight:700;color:${dc}">${c.despKg>0?'+':''}${c.despKg} kg · ${c.despPct}%</span>
+    </div>`;
+  }
+  if(c.petFlag){
+    html+=`<div style="background:var(--amber-l);border:1px solid var(--amber);border-radius:8px;padding:8px 12px;margin-top:8px;font-size:12px;color:var(--amber)">⚠ PET de ficha (${c.petPesoFicha} kg/bob) difiere ${c.petDifPct}% del calculado por gramaje (${c.petPesoCalc} kg, dens 1.35). Revisá la ficha.</div>`;
+  }
+  html+=`<div style="font-size:11px;color:var(--muted);margin-top:8px">El detalle definitivo se confirma al generar la OP.</div></div>`;
+  box.innerHTML=html;
 }
 async function guardarOC(id){
   const modo=document.getElementById('oc_modo').value;
