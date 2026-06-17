@@ -71,24 +71,28 @@ body.modo-modulo #nav{display:none}
   .field{margin-bottom:12px}
   .field2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 
-  /* TABLET */
-  #tablet{min-height:100vh;background:#0f172a;color:#fff;padding:18px}
-  .tab-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
-  .tab-head .logo{color:#fff}
+  /* TABLET — diseño claro Winflex */
+  #tablet{min-height:100vh;background:var(--bg);color:var(--txt);padding:18px}
+  .tab-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;max-width:760px;margin-left:auto;margin-right:auto}
   .sess-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:760px;margin:0 auto}
-  .sess-card{border-radius:18px;padding:0;overflow:hidden;background:#1e293b;cursor:pointer;border:2px solid transparent}
+  .sess-card{border-radius:18px;padding:0;overflow:hidden;background:var(--surface);cursor:pointer;border:1px solid var(--border);box-shadow:0 2px 10px rgba(0,0,0,.05)}
   .sess-card:active{transform:scale(.99)}
   .sess-band{height:10px}
   .sess-body{padding:20px}
   .sess-body .mq{font-size:22px;font-weight:800}
-  .sess-body .op{font-size:13px;color:#94a3b8;margin-top:4px}
-  .sess-empty{grid-column:1/-1;text-align:center;color:#64748b;padding:50px 20px;background:#1e293b;border-radius:18px}
+  .sess-body .op{font-size:13px;color:var(--muted);margin-top:4px}
+  .sess-empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:50px 20px;background:var(--surface);border:1px dashed var(--border);border-radius:18px}
   .tablet-session{max-width:680px;margin:0 auto}
   .ts-band{border-radius:16px 16px 0 0;padding:22px 22px 18px;color:#fff}
-  .ts-body{background:#1e293b;border-radius:0 0 16px 16px;padding:22px}
-  .ts-body input,.ts-body select{background:#0f172a;border-color:#334155;color:#fff}
-  .bobina-row{display:flex;justify-content:space-between;padding:10px 12px;background:#0f172a;border-radius:8px;margin-bottom:7px;font-size:14px}
-  .big-btn{width:100%;padding:18px;font-size:18px;font-weight:800;border-radius:14px;background:#fff;color:#0f172a;margin-top:6px}
+  .ts-body{background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 16px 16px;padding:22px}
+  .ts-body input,.ts-body select{background:#fff;border:1px solid var(--border);color:var(--txt)}
+  .ts-stat{flex:1;background:var(--green-l);border:1px solid var(--green);border-radius:10px;padding:12px;text-align:center}
+  .ts-stat .n{font-size:24px;font-weight:800;color:var(--green-d)}
+  .ts-stat .l{font-size:12px;color:var(--muted)}
+  .ts-datos{background:var(--green-l);border:1px solid var(--green);border-radius:10px;padding:14px;margin-bottom:16px}
+  .bobina-row{display:flex;justify-content:space-between;padding:10px 12px;background:var(--surface2);border-radius:8px;margin-bottom:7px;font-size:14px}
+  .big-btn{width:100%;padding:18px;font-size:18px;font-weight:800;border-radius:14px;background:var(--green);color:#fff;margin-top:6px}
+  .big-btn:hover{background:var(--green-d)}
   #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;z-index:99;opacity:0;transition:opacity .25s;pointer-events:none}
   #toast.show{opacity:1}
   #toast.error{background:var(--red)}
@@ -395,10 +399,10 @@ async function createGist(token){
 function doLogin(){
   const pin=$('pinInput').value.trim();
   const entry=DATA&&DATA.config.pins[pin];
-  if(entry){ currentUser=pinName(entry); currentRole=pinRol(entry); $('loginErr').textContent=''; try{sessionStorage.setItem('winflex-ext-pin',pin);}catch(e){} $('login').classList.add('hidden'); $('app').classList.remove('hidden'); render(); _aplicarVentanaModulo(); }
+  if(entry){ currentUser=pinName(entry); currentRole=pinRol(entry); $('loginErr').textContent=''; try{sessionStorage.setItem('winflex-ext-pin',pin);}catch(e){} $('login').classList.add('hidden'); if(ES_TABLET_URL){ enterTablet(); } else { $('app').classList.remove('hidden'); render(); _aplicarVentanaModulo(); } }
   else { $('loginErr').textContent='PIN incorrecto'; $('pinInput').value=''; }
 }
-function logout(){ try{sessionStorage.removeItem('winflex-ext-pin');}catch(e){} currentUser=''; $('app').classList.add('hidden'); $('tablet').classList.add('hidden'); $('login').classList.remove('hidden'); $('pinInput').value=''; }
+function logout(){ try{stopTabletPoll();}catch(e){} try{sessionStorage.removeItem('winflex-ext-pin');}catch(e){} currentUser=''; $('app').classList.add('hidden'); $('tablet').classList.add('hidden'); $('login').classList.remove('hidden'); $('pinInput').value=''; }
 $('pinInput')&&$('pinInput').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
 
 /* =========================================================
@@ -419,6 +423,7 @@ function render(){
 // ── NAVEGACIÓN POR VENTANAS (mismo sistema que Sueldos/Horas) ──────
 const MODULOS={dashboard:'Tablero',pedidos:'Pedidos',ordenes:'Órdenes',produccion:'Producción',stock:'Stock',cronograma:'Cronograma',catalogos:'Catálogos',analisis:'Análisis',config:'Config'};
 const _paramTab=(function(){try{return new URLSearchParams(location.search).get('tab');}catch(_){return null;}})();
+const ES_TABLET_URL=(function(){try{return new URLSearchParams(location.search).has('tablet');}catch(_){return false;}})();
 const MODULO_VENTANA=(_paramTab&&MODULOS[_paramTab])?_paramTab:null;
 const ES_HIJA=!!MODULO_VENTANA;
 function navegarA(t){
@@ -525,6 +530,10 @@ function renderPedidos(v){
 
 let _ocModo='laminado';
 let _ocEditId=null;
+// Turnos y días a partir de horas de extrusión — 2 turnos/día de 12 h = 24 h/día
+const HS_TURNO=12, TURNOS_DIA=2, HS_DIA=HS_TURNO*TURNOS_DIA;
+function nfDec(n){ return (Math.round(n*10)/10).toString().replace('.',','); }
+function turnosDiasTxt(hs){ if(!hs||hs<=0) return ''; return `${nfDec(hs/HS_TURNO)} turnos · ${nfDec(hs/HS_DIA)} días`; }
 function calcLaminado(r,kg){
   const cfg=(window.DATA&&DATA.config)||{};
   const dens=r.densidad||cfg.densPE||0.921;
@@ -685,7 +694,7 @@ function recalcOCLam(){
       ${mb('Bobinas terminadas', c.nFinalProd||'—')}
       ${mb('Bobinas de PE', c.nbobPE?`${c.nbobPE} <span style="font-size:10px;font-weight:400;color:var(--muted)">(${c.nXpe}:1)</span>`:'—')}
       ${mb('Kg PET en laminado', c.kgPetProd?c.kgPetProd.toLocaleString('es-AR')+' kg':'—')}
-      ${mb('Duración', durTxt)}
+      <div style="background:var(--surface2);border-radius:8px;padding:8px 10px;text-align:center"><div style="font-size:10px;color:var(--muted)">Duración</div><div style="font-size:14px;font-weight:700">${durTxt}</div>${turnosDiasTxt(c.dur)?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${turnosDiasTxt(c.dur)}</div>`:''}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
       <div style="background:var(--green-l);border:1px solid var(--green);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--muted)">PE a extruir (con ${c.recortePct}% recorte)</div><div style="font-size:16px;font-weight:800;color:var(--green-d)">${c.kgPeExtrusion?c.kgPeExtrusion.toLocaleString('es-AR')+' kg':'—'}</div></div>
@@ -738,7 +747,18 @@ function avisarOC(oc){
   const body=`Se cargó una nueva orden de compra para revisar y generar la OP.\n\nOC: ${oc.numero}\nTipo: ${oc.modo}\nCliente: ${d.cliente}\nMedida: ${d.medida}\nKg: ${oc.kgPedido||oc.kgTotal||''}\n\nEntrá a la app para generar la OP.`;
   const a=document.createElement('a'); a.href=`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`; a.style.display='none'; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),200);
 }
-async function borrarOC(id){ if(!confirm('¿Eliminar esta OC?'))return; DATA.ocs=DATA.ocs.filter(o=>o.id!==id); DATA.ocsEliminadas[id]=nowISO(); closeModal(); render(); await saveData(); toast('OC eliminada'); }
+async function borrarOC(id){
+  const hijas=DATA.ordenes.filter(o=>o.ocId===id);
+  const conProd=hijas.filter(o=>DATA.producciones.some(p=>p.ordenId===o.id));
+  let msg='¿Eliminar esta OC?';
+  if(hijas.length) msg+=`\n\nTambién se quitará${hijas.length>1?'n':''} ${hijas.length} OP de la tablet.`;
+  if(conProd.length) msg+=`\n⚠ ${conProd.length} de esas OP ya tiene${conProd.length>1?'n':''} bobinas cargadas.`;
+  if(!confirm(msg))return;
+  DATA.ocs=DATA.ocs.filter(o=>o.id!==id); DATA.ocsEliminadas[id]=nowISO();
+  hijas.forEach(o=>{ DATA.ordenesEliminadas[o.id]=nowISO(); });
+  DATA.ordenes=DATA.ordenes.filter(o=>o.ocId!==id);
+  closeModal(); render(); await saveData(); toast('OC eliminada'+(hijas.length?` · ${hijas.length} OP quitada${hijas.length>1?'s':''}`:''));
+}
 let _opPrefill=null, _opReviewOC=null;
 function prepararOP(ocId){
   const oc=DATA.ocs.find(o=>o.id===ocId); if(!oc)return;
@@ -835,7 +855,7 @@ async function pdfOP(id){
     y=doc.lastAutoTable.finalY+4;
     const durTxt=c.dur?(Math.floor(c.dur)+' hs '+Math.round((c.dur-Math.floor(c.dur))*60)+' min'):'—';
     doc.autoTable({ startY:y, theme:'grid', styles:{fontSize:10,cellPadding:2},
-      body:[ ['Duración extrusión', durTxt, 'Kg teórico total', c.kgTotal?(Math.round(c.kgTotal)+' kg'):(o.cantidadObjetivo||'—')] ],
+      body:[ ['Duración extrusión', durTxt + (turnosDiasTxt(c.dur)?' · '+turnosDiasTxt(c.dur):''), 'Kg teórico total', c.kgTotal?(Math.round(c.kgTotal)+' kg'):(o.cantidadObjetivo||'—')] ],
       columnStyles:{0:{fontStyle:'bold',cellWidth:44,fillColor:HEAD},2:{fontStyle:'bold',cellWidth:42,fillColor:HEAD}} });
     y=doc.lastAutoTable.finalY+6;
     doc.setFontSize(8); doc.text('Colocar etiqueta autoadhesiva con N° de bobina y N° de partida en el cono.',14,y);
@@ -1057,7 +1077,7 @@ function verOP(id){
       ${rw('Peso bob. s/cono', f(c.pesoSC,3)+' kg')}
       ${rw('Peso bob. c/cono', f(c.pesoCC,3)+' kg')}
       ${rw('Kg teórico total', c.kgTotal?Math.round(c.kgTotal).toLocaleString('es-AR')+' kg':'—')}
-      ${rw('Duración', durTxt)}
+      ${rw('Duración', durTxt + (turnosDiasTxt(c.dur)?' · '+turnosDiasTxt(c.dur):''))}
       ${rw('Veloc. motor / tiro', `${o.velocMotor||'—'} / ${o.velocTiro||'—'}`)}
       ${rw('Temperaturas T1–T9', temps)}
       ${rw('Material', esc(o.material||'—'))}
@@ -1278,7 +1298,7 @@ function calcOPlive(){
     <div><span class="muted">Peso bob. c/cono:</span> <b>${f(c.pesoCC,2)} kg</b></div>
     <div><span class="muted">Cant. bobinas:</span> <b>${c.nbob||'—'}</b></div>
     <div><span class="muted">Kg teórico total:</span> <b style="color:var(--green-d)">${c.kgTotal?Math.round(c.kgTotal).toLocaleString('es-AR'):'—'}</b></div>
-    <div><span class="muted">Duración:</span> <b>${c.dur?(Math.floor(c.dur)+' hs '+Math.round((c.dur-Math.floor(c.dur))*60)+' min'):(maq&&maq.kgHora?'—':'cargá kg/h en la máquina')}</b></div>
+    <div><span class="muted">Duración:</span> <b>${c.dur?(Math.floor(c.dur)+' hs '+Math.round((c.dur-Math.floor(c.dur))*60)+' min'+(turnosDiasTxt(c.dur)?' · '+turnosDiasTxt(c.dur):'')):(maq&&maq.kgHora?'—':'cargá kg/h en la máquina')}</b></div>
     ${(()=>{const lp=$('o_longBobPet')?+$('o_longBobPet').value:0;return lp?`<div><span class="muted">Long. bob. PET:</span> <b>${lp} m</b></div>`:'';})()}
   </div>`;
   if(maq && maq.capas>1){
@@ -1662,8 +1682,26 @@ function exportJSON(){ const blob=new Blob([JSON.stringify(DATA,null,2)],{type:'
 /* =========================================================
    MODO TABLET — sesiones por máquina (máx 2 simultáneas)
    ========================================================= */
-function enterTablet(){ tabletSessionOrdenId=null; $('app').classList.add('hidden'); $('tablet').classList.remove('hidden'); renderTablet(); }
-function exitTablet(){ $('tablet').classList.add('hidden'); $('app').classList.remove('hidden'); render(); }
+function enterTablet(){ tabletSessionOrdenId=null; $('app').classList.add('hidden'); $('tablet').classList.remove('hidden'); renderTablet(); startTabletPoll(); }
+function exitTablet(){ stopTabletPoll(); $('tablet').classList.add('hidden'); $('app').classList.remove('hidden'); render(); }
+
+/* Auto-sync de la tablet: refleja OC/OP borradas, OPs nuevas y bobinas
+   cargadas desde otro equipo, sin que haya que recargar a mano. */
+let _tabletPoll=null;
+function startTabletPoll(){ stopTabletPoll(); _tabletPoll=setInterval(tabletAutoSync, 15000); }
+function stopTabletPoll(){ if(_tabletPoll){ clearInterval(_tabletPoll); _tabletPoll=null; } }
+async function tabletAutoSync(){
+  if($('tablet').classList.contains('hidden')) return;
+  // no interrumpir mientras el operario está cargando datos
+  const ae=document.activeElement;
+  if(ae&&(ae.tagName==='INPUT'||ae.tagName==='SELECT'||ae.tagName==='TEXTAREA')) return;
+  try{ await loadData(); }catch(e){ return; }
+  if(tabletSessionOrdenId&&!DATA.ordenes.find(o=>o.id===tabletSessionOrdenId)){
+    tabletSessionOrdenId=null; toast('La orden fue eliminada desde el portal'); renderTablet(); return;
+  }
+  renderTablet();
+}
+async function tabletRefrescar(){ try{ await loadData(); }catch(e){} renderTablet(); toast('Actualizado'); }
 
 function renderTablet(){
   const t=$('tablet');
@@ -1674,10 +1712,12 @@ function renderTablet(){
   const arrancables=DATA.ordenes.filter(o=>o.estadoProduccion==='En cola'||o.estadoProduccion==='Programada').sort((a,b)=>(a.secuencia||999)-(b.secuencia||999));
   t.innerHTML=`
     <div class="tab-head">
-      <div style="display:flex;align-items:center;gap:10px"><span style="background:#fff;border-radius:9px;padding:5px 9px;display:inline-flex"><img src="${LOGO_FULL}" style="height:22px;display:block"></span><span style="color:#fff;font-weight:700;font-size:16px">Tablet · Extrusión</span></div>
-      <button class="btn-ghost btn-sm" onclick="exitTablet()" style="background:#1e293b;color:#fff">← Portal</button>
+      <div style="display:flex;align-items:center;gap:10px"><img src="${LOGO_FULL}" style="height:24px;display:block"><span style="color:var(--green-d);font-weight:700;font-size:16px">Tablet · Extrusión</span></div>
+      ${ES_TABLET_URL
+        ? `<button class="btn-ghost btn-sm" onclick="tabletRefrescar()">🔄 Actualizar</button>`
+        : `<button class="btn-ghost btn-sm" onclick="exitTablet()">← Portal</button>`}
     </div>
-    <div style="max-width:760px;margin:0 auto 14px;color:#94a3b8;font-size:14px">Tocá la máquina en la que vas a cargar. El color de cada máquina te acompaña mientras cargás para que no haya confusión.</div>
+    <div style="max-width:760px;margin:0 auto 14px;color:var(--muted);font-size:14px">Tocá la máquina en la que vas a cargar. El color de cada máquina te acompaña mientras cargás para que no haya confusión.</div>
     <div class="sess-grid">
       ${activas.length?activas.map(o=>{ const m=maqById(o.maquinaId);
         return `<div class="sess-card" style="border-color:${m?.color}" onclick="openSession('${o.id}')">
@@ -1685,13 +1725,13 @@ function renderTablet(){
           <div class="sess-body">
             <div class="mq" style="color:${m?.color}">${esc(m?.nombre||'?')}</div>
             <div class="op">${esc(o.numero)} · ${esc(o.productoDesc||'sin descripción')}</div>
-            <div class="op" style="margin-top:8px;color:#cbd5e1">${DATA.producciones.filter(p=>p.ordenId===o.id&&esHoy(p.timestamp)).length} bobinas hoy</div>
+            <div class="op" style="margin-top:8px;color:var(--txt)">${DATA.producciones.filter(p=>p.ordenId===o.id&&esHoy(p.timestamp)).length} bobinas hoy</div>
           </div>
         </div>`; }).join(''):`<div class="sess-empty">No hay máquinas corriendo.<br><span style="font-size:13px">Arrancá una orden de las que están en cola 👇</span></div>`}
     </div>
     ${arrancables.length?`<div style="max-width:760px;margin:22px auto 0">
-      <div style="color:#94a3b8;font-size:13px;margin-bottom:8px;font-weight:600">EN COLA — tocá para arrancar</div>
-      ${arrancables.map(o=>{ const m=maqById(o.maquinaId); return `<div class="bobina-row" style="cursor:pointer" onclick="arrancarOrden('${o.id}')"><span>${o.secuencia?`<b style="color:#22c55e">${o.secuencia}°</b> `:''}<span class="machine-dot" style="display:inline-block;background:${m?.color}"></span> ${esc(m?.nombre||'?')} · ${esc(o.numero)}${o.productoDesc?' · '+esc(o.productoDesc):''}</span><span style="color:#22c55e;font-weight:700">▶ Arrancar</span></div>`; }).join('')}
+      <div style="color:var(--muted);font-size:13px;margin-bottom:8px;font-weight:600">EN COLA — tocá para arrancar</div>
+      ${arrancables.map(o=>{ const m=maqById(o.maquinaId); return `<div class="bobina-row" style="cursor:pointer" onclick="arrancarOrden('${o.id}')"><span>${o.secuencia?`<b style="color:var(--green-d)">${o.secuencia}°</b> `:''}<span class="machine-dot" style="display:inline-block;background:${m?.color}"></span> ${esc(m?.nombre||'?')} · ${esc(o.numero)}${o.productoDesc?' · '+esc(o.productoDesc):''}</span><span style="color:var(--green-d);font-weight:700">▶ Arrancar</span></div>`; }).join('')}
     </div>`:''}`;
 }
 async function arrancarOrden(id){ const o=DATA.ordenes.find(x=>x.id===id); o.estadoProduccion='En producción'; o.updatedAt=nowISO(); await saveData(); renderTablet(); }
@@ -1710,42 +1750,42 @@ function renderTabletSession(t){
     </div>
     <div class="ts-body">
       <div style="display:flex;gap:14px;margin-bottom:16px">
-        <div style="flex:1;background:#0f172a;border-radius:10px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800">${bobinas.length}</div><div style="font-size:12px;color:#94a3b8">bobinas</div></div>
-        <div style="flex:1;background:#0f172a;border-radius:10px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800">${totalKg.toLocaleString('es-AR')}</div><div style="font-size:12px;color:#94a3b8">kg total${o.cantidadObjetivo?` / ${o.cantidadObjetivo}`:''}</div></div>
+        <div class="ts-stat"><div class="n">${bobinas.length}</div><div class="l">bobinas</div></div>
+        <div class="ts-stat"><div class="n">${totalKg.toLocaleString('es-AR')}</div><div class="l">kg total${o.cantidadObjetivo?` / ${o.cantidadObjetivo}`:''}</div></div>
       </div>
-      <div style="background:#0f172a;border-radius:10px;padding:14px;margin-bottom:16px">
-        <div style="color:#22c55e;font-weight:700;font-size:13px;margin-bottom:8px">DATOS DE LA OP — para setear la máquina</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:13px;color:#cbd5e1">
-          <div>Ancho: <b style="color:#fff">${o.ancho||'—'} mm</b></div>
-          <div>Espesor: <b style="color:#fff">${o.espesor||'—'} µ</b></div>
-          <div>Mts/bobina: <b style="color:#fff">${o.longitudBobina||'—'}</b></div>
-          <div>Bobinas: <b style="color:#fff">${(o.calc&&o.calc.nbob)||o.cantidadBobinas||'—'}</b></div>
-          <div>Veloc. motor: <b style="color:#fff">${o.velocMotor||'—'}</b></div>
-          <div>Veloc. tiro: <b style="color:#fff">${o.velocTiro||'—'}</b></div>
-          <div>Tipo: <b style="color:#fff">${o.tipoExt==='tubo'?'Tubo':'Lámina'}</b></div>
-          <div>Peso bob.: <b style="color:#fff">${o.calc&&o.calc.pesoSC?(+o.calc.pesoSC).toFixed(1):'—'} kg</b></div>
-          <div>Material: <b style="color:#fff">${esc(o.material||'—')}</b></div>
-          <div>Tratado: <b style="color:#fff">${[o.tratadoCE?'CE':null,o.tratadoCI?'CI':null,o.tratado2C?'2C':null].filter(Boolean).join(' ')||'—'}${o.dinas?` · ${o.dinas}d`:''}</b></div>
+      <div class="ts-datos">
+        <div style="color:var(--green-d);font-weight:700;font-size:13px;margin-bottom:8px">DATOS DE LA OP — para setear la máquina</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:13px;color:var(--muted)">
+          <div>Ancho: <b style="color:var(--txt)">${o.ancho||'—'} mm</b></div>
+          <div>Espesor: <b style="color:var(--txt)">${o.espesor||'—'} µ</b></div>
+          <div>Mts/bobina: <b style="color:var(--txt)">${o.longitudBobina||'—'}</b></div>
+          <div>Bobinas: <b style="color:var(--txt)">${(o.calc&&o.calc.nbob)||o.cantidadBobinas||'—'}</b></div>
+          <div>Veloc. motor: <b style="color:var(--txt)">${o.velocMotor||'—'}</b></div>
+          <div>Veloc. tiro: <b style="color:var(--txt)">${o.velocTiro||'—'}</b></div>
+          <div>Tipo: <b style="color:var(--txt)">${o.tipoExt==='tubo'?'Tubo':'Lámina'}</b></div>
+          <div>Peso bob.: <b style="color:var(--txt)">${o.calc&&o.calc.pesoSC?(+o.calc.pesoSC).toFixed(1):'—'} kg</b></div>
+          <div>Material: <b style="color:var(--txt)">${esc(o.material||'—')}</b></div>
+          <div>Tratado: <b style="color:var(--txt)">${[o.tratadoCE?'CE':null,o.tratadoCI?'CI':null,o.tratado2C?'2C':null].filter(Boolean).join(' ')||'—'}${o.dinas?` · ${o.dinas}d`:''}</b></div>
         </div>
-        <div style="margin-top:8px;color:#cbd5e1;font-size:13px">Temperaturas: <b style="color:#fff">${[1,2,3,4,5,6,7,8,9].map(i=>o['t'+i]!=null?o['t'+i]:'—').join(' · ')}</b></div>
-        <div style="margin-top:3px;color:#64748b;font-size:11px">Tolva T1-2 · Tornillo T3-5 · Adaptador T6-7 · Cabezal T8-9${o.longBobPet?` · Long. bob. PET ${o.longBobPet} m`:''}</div>
+        <div style="margin-top:8px;color:var(--muted);font-size:13px">Temperaturas: <b style="color:var(--txt)">${[1,2,3,4,5,6,7,8,9].map(i=>o['t'+i]!=null?o['t'+i]:'—').join(' · ')}</b></div>
+        <div style="margin-top:3px;color:var(--muted);font-size:11px">Tolva T1-2 · Tornillo T3-5 · Adaptador T6-7 · Cabezal T8-9${o.longBobPet?` · Long. bob. PET ${o.longBobPet} m`:''}</div>
       </div>
       <div class="field2">
-        <div><label style="color:#94a3b8">Peso (kg)</label><input id="b_peso" type="number" inputmode="decimal" placeholder="0"></div>
-        <div><label style="color:#94a3b8">Metros</label><input id="b_metros" type="number" inputmode="decimal" placeholder="opcional"></div>
+        <div><label>Peso (kg)</label><input id="b_peso" type="number" inputmode="decimal" placeholder="0"></div>
+        <div><label>Metros</label><input id="b_metros" type="number" inputmode="decimal" placeholder="opcional"></div>
       </div>
       <div class="field2" style="margin-top:10px">
-        <div><label style="color:#94a3b8">Ancho (mm)</label><input id="b_ancho" type="number" placeholder="opcional"></div>
-        <div><label style="color:#94a3b8">Operario</label><input id="b_oper" list="opers" placeholder="nombre"><datalist id="opers">${(DATA.config.operarios||[]).map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
+        <div><label>Ancho (mm)</label><input id="b_ancho" type="number" placeholder="opcional"></div>
+        <div><label>Operario</label><input id="b_oper" list="opers" placeholder="nombre"><datalist id="opers">${(DATA.config.operarios||[]).map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
       </div>
       <div class="field2" style="margin-top:10px">
-        <div><label style="color:#94a3b8">Scrap (kg)</label><input id="b_scrap" type="number" inputmode="decimal" placeholder="opcional"></div>
+        <div><label>Scrap (kg)</label><input id="b_scrap" type="number" inputmode="decimal" placeholder="opcional"></div>
         <div></div>
       </div>
       <button class="big-btn" onclick="cargarBobina('${o.id}')">＋ Cargar bobina</button>
-      <button onclick="pdfRegistroBobinas('${o.id}')" style="width:100%;margin-top:10px;background:#1e293b;color:#cbd5e1;padding:11px;border:none;border-radius:8px;font-weight:600">📄 PDF registro de bobinas</button>
-      <button onclick="terminarOrden('${o.id}')" style="width:100%;margin-top:10px;background:none;color:#94a3b8;padding:10px;font-weight:600">Terminar orden</button>
-      ${bobinas.length?`<div style="margin-top:18px"><div style="color:#94a3b8;font-size:13px;margin-bottom:8px;font-weight:600">CARGADAS</div>${bobinas.map(b=>`<div class="bobina-row"><span>${esc(b.peso)} kg ${b.metros?`· ${esc(b.metros)} m`:''}${b.scrap?` · <span style="color:#f59e0b">scrap ${esc(b.scrap)}kg</span>`:''}</span><span style="color:#94a3b8">${esc(b.operario||'')} · ${fmtFecha(b.timestamp).split(' ')[1]}</span></div>`).join('')}</div>`:''}
+      <button class="btn-ghost" onclick="pdfRegistroBobinas('${o.id}')" style="width:100%;margin-top:10px;justify-content:center">📄 PDF registro de bobinas</button>
+      <button onclick="terminarOrden('${o.id}')" style="width:100%;margin-top:10px;background:none;color:var(--muted);padding:10px;font-weight:600">Terminar orden</button>
+      ${bobinas.length?`<div style="margin-top:18px"><div style="color:var(--muted);font-size:13px;margin-bottom:8px;font-weight:600">CARGADAS</div>${bobinas.map(b=>`<div class="bobina-row"><span>${esc(b.peso)} kg ${b.metros?`· ${esc(b.metros)} m`:''}${b.scrap?` · <span style="color:var(--amber)">scrap ${esc(b.scrap)}kg</span>`:''}</span><span style="color:var(--muted)">${esc(b.operario||'')} · ${fmtFecha(b.timestamp).split(' ')[1]}</span></div>`).join('')}</div>`:''}
     </div>
   </div>`;
 }
@@ -1775,8 +1815,9 @@ loadData().then(()=>{
     const entry=pin&&DATA&&DATA.config&&DATA.config.pins&&DATA.config.pins[pin];
     if(entry){
       currentUser=pinName(entry); currentRole=pinRol(entry);
-      $('login').classList.add('hidden'); $('app').classList.remove('hidden');
-      render(); _aplicarVentanaModulo();
+      $('login').classList.add('hidden');
+      if(ES_TABLET_URL){ enterTablet(); }
+      else { $('app').classList.remove('hidden'); render(); _aplicarVentanaModulo(); }
     }
   }catch(e){}
 });
