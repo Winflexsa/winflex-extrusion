@@ -208,6 +208,7 @@ function seedData(){
       pesoBobinaStd:20,
       emailsAviso:'',
       densPET:1.35, densPE:0.92,
+      recortePE:5, finalesPorPE:3,
       conoPesoRef:4.20, conoLargoRef:2000
     },
     maquinas:[
@@ -525,43 +526,56 @@ function renderPedidos(v){
 let _ocModo='laminado';
 let _ocEditId=null;
 function calcLaminado(r,kg){
-  const k1=1, dens=r.densidad||0.921;
-  const gxm=(r.peAncho&&r.peEsp)?(dens*r.peAncho*r.peEsp*k1/1000):0;
+  const cfg=(window.DATA&&DATA.config)||{};
+  const dens=r.densidad||cfg.densPE||0.921;
+  const densPet=cfg.densPET||1.35;
   const longitud=r.peMts||0;
-  const base = r.prodPeso || r.pePeso || 0;
-  const nbobRaw = (base&&kg)? kg/base : 0;          // bobinas teóricas (fraccional)
-  let nbob = nbobRaw? Math.ceil(nbobRaw) : 0;
-  if(nbob && nbob%2) nbob++;                         // se extruye en jumbo y se corta en pares
-  const cono = conoForAncho(r.peAncho);
-  const pesoNeto = (gxm&&longitud)? +(gxm*longitud/1000).toFixed(3) : (r.pePeso||0);
-  const pesoBruto = +(pesoNeto + cono).toFixed(3);
-  const metros = nbob * longitud;
-  const kgTotalPe = +(nbob * pesoNeto).toFixed(1);
-  const kgTotalPet = +(nbob * (r.petPeso||0)).toFixed(1);
-  const peri=r.perimetro||0.618, tiro=r.tiroMod||0;
-  const prodHora2=(peri&&tiro&&gxm)?(peri*tiro*gxm*0.06*2):0;
-  const dur=(prodHora2&&kgTotalPe)?kgTotalPe/prodHora2:0;
-  // --- Desperdicio por redondeo a bobinas pares ---
-  const kgLamProd = +(nbob * base).toFixed(1);       // laminado terminado que sale (kg)
-  const despKg = base? +(kgLamProd - kg).toFixed(1) : 0;
-  const despPct = kgLamProd? +(despKg/kgLamProd*100).toFixed(2) : 0;
-  // --- Cross-check gramaje PET (densidad real 1.35) vs petPeso de ficha ---
-  const densPet = (window.DATA&&DATA.config&&DATA.config.densPET)||1.35;
-  const gxmPet = (r.petAncho&&r.petEsp)? +(densPet*r.petAncho*r.petEsp/1000).toFixed(3) : 0;
-  const petPesoCalc = (gxmPet&&r.petMts)? +(gxmPet*r.petMts/1000).toFixed(2) : 0;
-  const petPesoFicha = r.petPeso||0;
-  const petDifPct = (petPesoCalc&&petPesoFicha)? +(Math.abs(petPesoCalc-petPesoFicha)/petPesoFicha*100).toFixed(1) : 0;
-  const petFlag = petPesoCalc&&petPesoFicha&&petDifPct>5;   // diferencia >5% => revisar ficha
-  // --- Split coherente de material por gramaje del laminado TERMINADO (ancho final) ---
+  const cono=conoForAncho(r.peAncho);
+  // gxm de la bobina de PE (ancho de extrusión) — para peso de bobina y duración
+  const gxm=(r.peAncho&&r.peEsp)?(dens*r.peAncho*r.peEsp/1000):0;
+  const pesoNeto=(gxm&&longitud)? +(gxm*longitud/1000).toFixed(3) : (r.pePeso||0);
+  const pesoBruto=+(pesoNeto+cono).toFixed(3);
+  // gramaje del laminado TERMINADO (ancho final) — base del split de material
   const gPetFin=(r.prodAncho&&r.petEsp)? densPet*r.prodAncho*r.petEsp/1000 : 0;
   const gPeFin =(r.prodAncho&&r.peEsp)?  dens   *r.prodAncho*r.peEsp /1000 : 0;
   const gTotFin=gPetFin+gPeFin;
-  const metrosLam=(gTotFin&&kgLamProd)? +(kgLamProd*1000/gTotFin).toFixed(0) : 0;  // metros reales de laminado
-  const kgPetNec=(gPetFin&&metrosLam)? +(gPetFin*metrosLam/1000).toFixed(1) : 0;
-  const kgPeNec =(gPeFin&&metrosLam)?  +(gPeFin *metrosLam/1000).toFixed(1) : 0;
-  return { nbob, nbobRaw, cono, pesoNeto, pesoBruto, metros, kgTotalPe, kgTotalPet, gxm, longitud, dur,
-           base, kgLamProd, despKg, despPct, gxmPet, petPesoCalc, petPesoFicha, petDifPct, petFlag,
-           metrosLam, kgPetNec, kgPeNec };
+  const fracPe = gTotFin? gPeFin/gTotFin : 0;
+  const fracPet= gTotFin? gPetFin/gTotFin : 0;
+  // bobinas terminadas necesarias y bobinas de PE a extruir (regla N terminadas por bobina de PE)
+  const base=r.prodPeso||0;                                   // peso de la bobina terminada (PET/PE)
+  const nXpe=r.finalesPorPE||cfg.finalesPorPE||3;             // bobinas terminadas por bobina de PE
+  const nFinalNec=(base&&kg)? Math.ceil(kg/base) : 0;
+  const nbobPE=nFinalNec? Math.ceil(nFinalNec/nXpe) : 0;      // bobinas de PE a extruir
+  const nFinalProd=nbobPE*nXpe;                               // bobinas terminadas que realmente salen
+  const kgLamProd=+(nFinalProd*base).toFixed(1);              // kg de laminado terminado producido
+  const despKg=base? +(kgLamProd-kg).toFixed(1) : 0;          // sobrante por completar bobinas de PE enteras
+  const despPct=kgLamProd? +(despKg/kgLamProd*100).toFixed(2) : 0;
+  // material en el laminado producido
+  const kgPetProd=+(fracPet*kgLamProd).toFixed(1);            // PET que va al laminado
+  const kgPeProd =+(fracPe *kgLamProd).toFixed(1);            // PE que va al laminado
+  // PE de extrusión REAL = PE del laminado + recorte de orillas
+  const recortePct=(r.recortePE!=null?r.recortePE:(cfg.recortePE!=null?cfg.recortePE:5));
+  const kgPeExtrusion=+(kgPeProd*(1+recortePct/100)).toFixed(1);
+  const metros=nbobPE*longitud;                              // metros de PE (bobinas de PE × longitud)
+  // duración de extrusión, sobre el PE que se extruye
+  const peri=r.perimetro||0.618, tiro=r.tiroMod||0;
+  const prodHora2=(peri&&tiro&&gxm)?(peri*tiro*gxm*0.06*2):0;
+  const dur=(prodHora2&&kgPeExtrusion)?kgPeExtrusion/prodHora2:0;
+  // cross-check gramaje PET (1.35) vs petPeso de ficha
+  const gxmPet=(r.petAncho&&r.petEsp)? +(densPet*r.petAncho*r.petEsp/1000).toFixed(3) : 0;
+  const petPesoCalc=(gxmPet&&r.petMts)? +(gxmPet*r.petMts/1000).toFixed(2) : 0;
+  const petPesoFicha=r.petPeso||0;
+  const petDifPct=(petPesoCalc&&petPesoFicha)? +(Math.abs(petPesoCalc-petPesoFicha)/petPesoFicha*100).toFixed(1) : 0;
+  const petFlag=petPesoCalc&&petPesoFicha&&petDifPct>5;
+  return {
+    // claves legacy (consumidas por OP/PDF/displays) — ya con valores corregidos
+    nbob:nbobPE, cono, pesoNeto, pesoBruto, metros, gxm, longitud, dur,
+    kgTotalPe:kgPeExtrusion, kgTotalPet:kgPetProd, base,
+    // claves nuevas para el panel
+    nXpe, nFinalNec, nFinalProd, nbobPE, kgLamProd, despKg, despPct,
+    gPetFin, gPeFin, fracPe, fracPet, kgPetProd, kgPeProd, recortePct, kgPeExtrusion,
+    gxmPet, petPesoCalc, petPesoFicha, petDifPct, petFlag
+  };
 }
 function despColorLam(pct){ pct=Math.abs(pct); return pct<3?'var(--green-d)':pct<7?'var(--amber)':'var(--red)'; }
 function despBgLam(pct){ pct=Math.abs(pct); return pct<3?'var(--green-l)':pct<7?'var(--amber-l)':'var(--red-l)'; }
@@ -663,32 +677,34 @@ function recalcOCLam(){
   if(!kg){ box.innerHTML=`PE ${r.peAncho||'?'}×${r.peEsp||'?'} · ingresá los kg del pedido para ver el cálculo.`; return; }
   const c=calcLaminado(r,kg);
   const durTxt=c.dur?(Math.floor(c.dur)+' hs '+Math.round((c.dur-Math.floor(c.dur))*60)+' min'):'—';
-  const par = c.nbobRaw && (Math.ceil(c.nbobRaw)%2) ? ' (redondeado a par)' : (c.nbobRaw&&!Number.isInteger(c.nbobRaw)?' (redondeado ↑)':'');
   const dc=despColorLam(c.despPct), dbg=despBgLam(c.despPct);
   const mb=(l,v)=>`<div style="background:var(--surface2);border-radius:8px;padding:8px 10px;text-align:center"><div style="font-size:10px;color:var(--muted)">${l}</div><div style="font-size:14px;font-weight:700">${v}</div></div>`;
   let html=`<div class="card" style="padding:12px;margin:0;background:var(--surface)">
     <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Cálculo del pedido — PE ${r.peAncho||'?'}×${r.peEsp||'?'} / PET ${r.petAncho||'?'}×${r.petEsp||'?'}</div>
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px">
-      ${mb('Bobinas', (c.nbob||0)+par)}
-      ${mb('Metros laminado', c.metrosLam?c.metrosLam.toLocaleString('es-AR')+' m':'—')}
-      ${mb('Kg PET nec.', c.kgPetNec?c.kgPetNec.toLocaleString('es-AR')+' kg':'—')}
-      ${mb('Kg PE nec.', c.kgPeNec?c.kgPeNec.toLocaleString('es-AR')+' kg':'—')}
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px">
+      ${mb('Bobinas terminadas', c.nFinalProd||'—')}
+      ${mb('Bobinas de PE', c.nbobPE?`${c.nbobPE} <span style="font-size:10px;font-weight:400;color:var(--muted)">(${c.nXpe}:1)</span>`:'—')}
+      ${mb('Kg PET en laminado', c.kgPetProd?c.kgPetProd.toLocaleString('es-AR')+' kg':'—')}
       ${mb('Duración', durTxt)}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+      <div style="background:var(--green-l);border:1px solid var(--green);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--muted)">PE a extruir (con ${c.recortePct}% recorte)</div><div style="font-size:16px;font-weight:800;color:var(--green-d)">${c.kgPeExtrusion?c.kgPeExtrusion.toLocaleString('es-AR')+' kg':'—'}</div></div>
+      <div style="background:var(--surface2);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--muted)">PE en el laminado (sin recorte)</div><div style="font-size:16px;font-weight:700">${c.kgPeProd?c.kgPeProd.toLocaleString('es-AR')+' kg':'—'}</div></div>
     </div>`;
   if(c.base){
     html+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
       <div style="background:var(--surface2);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--muted)">Kg pedido (cliente)</div><div style="font-size:14px;font-weight:700">${kg.toLocaleString('es-AR')} kg</div></div>
-      <div style="background:var(--surface2);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--muted)">Kg laminado a producir</div><div style="font-size:14px;font-weight:700">${c.kgLamProd.toLocaleString('es-AR')} kg <span style="font-weight:400;color:var(--muted)">(${c.nbob} × ${c.base} kg)</span></div></div>
+      <div style="background:var(--surface2);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--muted)">Kg laminado a producir</div><div style="font-size:14px;font-weight:700">${c.kgLamProd.toLocaleString('es-AR')} kg <span style="font-weight:400;color:var(--muted)">(${c.nFinalProd} × ${c.base} kg)</span></div></div>
     </div>
     <div style="background:${dbg};border:1px solid ${dc};border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:12px;color:var(--muted)">Desperdicio por redondeo a bobinas pares</span>
+      <span style="font-size:12px;color:var(--muted)">Desperdicio por completar bobinas de PE enteras</span>
       <span style="font-weight:700;color:${dc}">${c.despKg>0?'+':''}${c.despKg} kg · ${c.despPct}%</span>
     </div>`;
   }
   if(c.petFlag){
     html+=`<div style="background:var(--amber-l);border:1px solid var(--amber);border-radius:8px;padding:8px 12px;margin-top:8px;font-size:12px;color:var(--amber)">⚠ PET de ficha (${c.petPesoFicha} kg/bob) difiere ${c.petDifPct}% del calculado por gramaje (${c.petPesoCalc} kg, dens 1.35). Revisá la ficha.</div>`;
   }
-  html+=`<div style="font-size:11px;color:var(--muted);margin-top:8px">El detalle definitivo se confirma al generar la OP.</div></div>`;
+  html+=`<div style="font-size:11px;color:var(--muted);margin-top:8px">Recorte editable en Config (hoy ${c.recortePct}%). El detalle definitivo se confirma al generar la OP.</div></div>`;
   box.innerHTML=html;
 }
 async function guardarOC(id){
@@ -1602,11 +1618,24 @@ function renderConfig(v){
       <input id="cfgEmails" value="${esc(DATA.config.emailsAviso||'')}" placeholder="jonathan@winflex..., horacio@winflex..." style="width:100%" onchange="setEmailsAviso(this.value)">
     </div>
     <div class="card">
+      <h3>Parámetros de laminado</h3>
+      <div class="muted" style="font-size:13px;margin-bottom:10px">Usados para calcular el PE a extruir desde los kg de laminado de cada pedido.</div>
+      <div class="field2">
+        <div><label>Recorte de PE (%)</label><input id="cfgRecortePE" type="number" step="0.5" value="${DATA.config.recortePE!=null?DATA.config.recortePE:5}" onchange="setCfgNum('recortePE',this.value)"></div>
+        <div><label>Bobinas terminadas por bobina de PE</label><input id="cfgFinalesPorPE" type="number" step="1" value="${DATA.config.finalesPorPE!=null?DATA.config.finalesPorPE:3}" onchange="setCfgNum('finalesPorPE',this.value)"></div>
+      </div>
+      <div class="field2" style="margin-top:8px">
+        <div><label>Densidad PET</label><input id="cfgDensPET" type="number" step="0.01" value="${DATA.config.densPET!=null?DATA.config.densPET:1.35}" onchange="setCfgNum('densPET',this.value)"></div>
+        <div></div>
+      </div>
+    </div>
+    <div class="card">
       <h3>Datos</h3>
       <p class="muted" style="font-size:13px;margin-bottom:10px">Última actualización: ${fmtFecha(DATA.lastUpdate)}</p>
       <div class="row"><button class="btn-ghost" onclick="exportJSON()">Exportar JSON</button></div>
     </div>`;
 }
+async function setCfgNum(key,val){ const n=+val; if(!isFinite(n)){return;} DATA.config[key]=n; await saveData(); toast('Guardado'); if(currentTab==='pedidos'&&typeof recalcOCLam==='function'){ try{recalcOCLam();}catch(e){} } }
 function cfgMostrarConectar(){ $('cfgConectar').classList.toggle('hidden'); }
 async function cfgCrearGist(){
   const token=$('cfgToken').value.trim(); const st=$('cfgStatus');
