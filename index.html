@@ -213,16 +213,16 @@ function seedData(){
       emailsAviso:'',
       densPET:1.35, densPE:0.92,
       recortePE:5, finalesPorPE:3,
-      conoPesoRef:4.20, conoLargoRef:2000
+      conoPesoRef:4.60, conoLargoRef:2000
     },
     maquinas:[
-      { id:'maq-1', nombre:'Extrusora 1', capas:1, tipo:'Monocapa',     kgHora:null, mpCompatibles:['LLDPE 206','LLDPE 207','LLDPE','LLDPE+LLDPE (80/20)','Surlyn','Nucrel','HDPE'], especificaciones:'', color:'#16a34a' },
-      { id:'maq-2', nombre:'Extrusora 2', capas:2, tipo:'Bicapa',       kgHora:null, mpCompatibles:['HDPE','PA'], especificaciones:'', color:'#2563eb' },
-      { id:'maq-3', nombre:'Extrusora 3', capas:3, tipo:'3 capas',      kgHora:null, mpCompatibles:['LDPE 207','LDPE 206','BYNEL','PA'], especificaciones:'', color:'#d97706' },
-      { id:'maq-4', nombre:'Extrusora 4', capas:5, tipo:'Hasta 5 capas',kgHora:null, mpCompatibles:['LDPE 207','LDPE 206','BYNEL','PA'], especificaciones:'', color:'#7c3aed' }
+      { id:'maq-1', nombre:'Extrusora 1', capas:1, tipo:'Monocapa',     kgHora:null, perimetro:0.618, mpCompatibles:['LLDPE 206','LLDPE 207','LLDPE','LLDPE+LLDPE (80/20)','Surlyn','Nucrel','HDPE'], especificaciones:'', color:'#16a34a' },
+      { id:'maq-2', nombre:'Extrusora 2', capas:2, tipo:'Bicapa',       kgHora:null, perimetro:0.395, mpCompatibles:['HDPE','PA','DIOX AV 3 PA6','HDPE 35060'], especificaciones:'', color:'#2563eb' },
+      { id:'maq-3', nombre:'Extrusora 3', capas:3, tipo:'3 capas',      kgHora:null, perimetro:0.395, mpCompatibles:['LDPE 207','LDPE 206','BYNEL','PA'], especificaciones:'', color:'#d97706' },
+      { id:'maq-4', nombre:'Extrusora 4', capas:5, tipo:'Hasta 5 capas',kgHora:null, perimetro:0.395, mpCompatibles:['LDPE 207','LDPE 206','BYNEL','PA'], especificaciones:'', color:'#7c3aed' }
     ],
     materiasPrimas:[
-      'LLDPE 206','LLDPE 207','LLDPE','LLDPE+LLDPE (80/20)','Surlyn','Nucrel','HDPE','PA','LDPE 207','LDPE 206','BYNEL'
+      'LLDPE 206','LLDPE 207','LLDPE','LLDPE+LLDPE (80/20)','Surlyn','Nucrel','HDPE','PA','LDPE 207','LDPE 206','BYNEL','DIOX AV 3 PA6','HDPE 35060'
     ].map((n,i)=>({ id:'mp-'+i, nombre:n, tipo:'', proveedor:'' })),
     recetasCapa:[
       { id:'rc-maq3', maquinaId:'maq-3', nombre:'Barrera PA (estándar)', capas:[ {material:'LDPE 207',pct:50}, {material:'LDPE 206',pct:16}, {material:'BYNEL',pct:4}, {material:'PA',pct:30} ] },
@@ -233,6 +233,12 @@ function seedData(){
     tiposProducto:[
       { id:'tp-lampe', nombre:'Lámina PE (laminado)', maquinaId:'maq-1', destinoDefault:'Laminación', pesoBobina:20, longitudBobina:1700 },
       { id:'tp-barrera', nombre:'Film barrera 3 capas', maquinaId:'maq-3', destinoDefault:'Venta directa', pesoBobina:20, longitudBobina:null }
+    ],
+    // Fichas conocidas de Extrusora 2 (tubo soplado) — autocompletan la OP
+    fichasExt:[
+      { id:'fx-tsc18060', nombre:'TSC 180/60 · Queso de cerdo', maquinaId:'maq-2', cliente:'Queso de cerdo', formato:'Bobina tubo', tipoExt:'tubo', ancho:180, espesor:60, densidad:1.14, longitudBobina:500, material:'DIOX AV 3 PA6', velocTiro:17.5, velocMotor:1000, matriz:80, dinas:42, tubo1lado:true, t1:234,t2:235,t3:234,t4:235,t5:230,t6:225,t7:225,t8:null,t9:null },
+      { id:'fx-bh30030', nombre:'BH 300/30 · Bolsa de horno', maquinaId:'maq-2', cliente:'Bolsa de horno', formato:'Bobina tubo', tipoExt:'tubo', ancho:300, espesor:30, densidad:1.14, longitudBobina:1000, material:'DIOX AV 3 PA6', velocTiro:12.6, velocMotor:1000, matriz:115, dinas:42, tubo1lado:false, t1:234,t2:235,t3:234,t4:235,t5:230,t6:225,t7:225,t8:null,t9:null },
+      { id:'fx-wp8080', nombre:'WP 80/80 · HDPE (Paolini)', maquinaId:'maq-2', cliente:'Paolini', formato:'Bobina tubo', tipoExt:'tubo', ancho:80, espesor:80, densidad:0.952, longitudBobina:1500, material:'HDPE 35060', velocTiro:35, velocMotor:1000, matriz:50, dinas:42, tubo1lado:true, t1:234,t2:235,t3:234,t4:235,t5:230,t6:225,t7:225,t8:null,t9:null }
     ],
     recetasLaminado:[
       {cliente:'Pespasa', prodAncho:300,prodEsp:93,prodPeso:null, petAncho:330,petEsp:13,petPeso:null,petMts:null, peAncho:350,peEsp:80,pePeso:null,peMts:null, cilindro:320, densidad:0.921,velocTiro:12.3,velocMotor:70,perimetro:0.618,material:'DOW LDPE 206',dinas:42, tiroMod:null, t1:null,t2:null,t3:null,t4:null,t5:null,t6:null,t7:null,t8:null,t9:null},
@@ -375,7 +381,15 @@ function migrate(d){
   d.schemaVersion=d.schemaVersion||1;
   d.config=Object.assign({},s.config,d.config||{});
   if(d.config.densPET===1.38) d.config.densPET=1.35; // corrección densidad PET (antes 1.38, real 1.35)
+  if(d.config.conoPesoRef===4.20) d.config.conoPesoRef=4.60; // ref cono del ingeniero (2000 mm → 4,6 kg)
   ['maquinas','materiasPrimas','formatos','productos','tiposProducto','recetasLaminado','clientes','recetasCapa','ordenes','ocs','producciones'].forEach(k=>{ if(!Array.isArray(d[k])) d[k]=s[k]; });
+  // perímetro de caja por máquina (E1 laminado 0,618 · resto tubo 0,395)
+  d.maquinas.forEach(m=>{ if(m.perimetro==null) m.perimetro=(m.id==='maq-1'?0.618:0.395); });
+  // materiales nuevos de Extrusora 2
+  ['DIOX AV 3 PA6','HDPE 35060'].forEach(n=>{ if(!d.materiasPrimas.some(mp=>mp.nombre===n)) d.materiasPrimas.push({id:'mp-'+(d.materiasPrimas.length),nombre:n,tipo:'',proveedor:''}); });
+  const _m2=d.maquinas.find(m=>m.id==='maq-2'); if(_m2){ ['DIOX AV 3 PA6','HDPE 35060'].forEach(n=>{ if(!_m2.mpCompatibles.includes(n)) _m2.mpCompatibles.push(n); }); }
+  // fichas conocidas de Extrusora 2
+  if(!Array.isArray(d.fichasExt)||!d.fichasExt.length) d.fichasExt=s.fichasExt;
   if(!d.ordenesEliminadas) d.ordenesEliminadas={};
   if(!d.ocsEliminadas) d.ocsEliminadas={};
   if(!d.maquinas.length) d.maquinas=s.maquinas;
@@ -850,7 +864,8 @@ async function pdfOP(id){
         ['Peso bob. s/cono (kg)', c.pesoSC?c.pesoSC.toFixed(3):'', 'Peso bob. c/cono (kg)', c.pesoCC?c.pesoCC.toFixed(3):''],
         ['Material', o.material||'—', 'Dinas', dom(o.dinas)],
         ['Tratado', [o.tratadoCE?'CE':null,o.tratadoCI?'CI':null,o.tratado2C?'2C':null].filter(Boolean).join(' ')||'—', 'Tubo a 1 lado', o.tubo1lado?'Sí':'No'],
-        ['Long. bob. PET (info)', dom(o.longBobPet), 'Demanda PET (info)', o.demandaPet?o.demandaPet+' kg':'—'] ],
+        ['Long. bob. PET (info)', dom(o.longBobPet), 'Demanda PET (info)', o.demandaPet?o.demandaPet+' kg':'—'],
+        ...((o.tipoExt==='tubo'&&o.ancho)?(()=>{const rs=relSoplado(o.ancho,o.matriz);return [['Ø tubo (mm)', String(rs.dia), 'Ø matriz / soplado', o.matriz?`Ø${o.matriz} → ${nfDec(rs.bur)}`:'—']];})():[]) ],
       columnStyles:{0:{fontStyle:'bold',cellWidth:44,fillColor:HEAD},2:{fontStyle:'bold',cellWidth:42,fillColor:HEAD}} });
     y=doc.lastAutoTable.finalY+4;
     const durTxt=c.dur?(Math.floor(c.dur)+' hs '+Math.round((c.dur-Math.floor(c.dur))*60)+' min'):'—';
@@ -1079,6 +1094,7 @@ function verOP(id){
       ${rw('Kg teórico total', c.kgTotal?Math.round(c.kgTotal).toLocaleString('es-AR')+' kg':'—')}
       ${rw('Duración', durTxt + (turnosDiasTxt(c.dur)?' · '+turnosDiasTxt(c.dur):''))}
       ${rw('Veloc. motor / tiro', `${o.velocMotor||'—'} / ${o.velocTiro||'—'}`)}
+      ${(o.tipoExt==='tubo'&&o.ancho)?(()=>{const rs=relSoplado(o.ancho,o.matriz);return rw('Soplado (Ø tubo / matriz)', `${rs.dia} mm${o.matriz?` / Ø${o.matriz} → <b>${nfDec(rs.bur)}</b>`:' · sin Ø matriz'}`);})():''}
       ${rw('Temperaturas T1–T9', temps)}
       ${rw('Material', esc(o.material||'—'))}
       ${rw('Tratado', ([o.tratadoCE?'CE':null,o.tratadoCI?'CI':null,o.tratado2C?'2C':null].filter(Boolean).join(' ')||'—')+(o.dinas?` · ${o.dinas} dinas`:''))}
@@ -1200,6 +1216,7 @@ function openOrdenModal(id){
 
     <div class="card" style="padding:14px;margin:4px 0 12px">
       <div style="font-weight:700;font-size:13px;margin-bottom:10px">Hoja de datos — seteo de máquina</div>
+      ${(DATA.fichasExt||[]).length?`<div class="field" style="margin-bottom:10px"><label>Cargar ficha conocida (Extrusora 2 · tubo)</label><select id="o_fichaExt" onchange="aplicarFichaExt(this.value)"><option value="">— elegí una ficha para autocompletar —</option>${(DATA.fichasExt||[]).map(fx=>`<option value="${fx.id}">${esc(fx.nombre)}</option>`).join('')}</select></div>`:''}
       <input type="hidden" id="o_longBobPet" value="${o.longBobPet||''}">
       <div class="field2">
         <div><label>Fecha extrusión (inicio)</label><input id="o_fechaInicio" type="date" value="${o.fechaInicio||''}"></div>
@@ -1211,7 +1228,11 @@ function openOrdenModal(id){
       </div>
       <div class="field2">
         <div><label>Veloc. motor</label><input id="o_vmotor" type="number" value="${o.velocMotor||''}"></div>
-        <div><label>Veloc. tiro</label><input id="o_vtiro" type="number" step="0.1" value="${o.velocTiro||''}"></div>
+        <div><label>Veloc. tiro</label><input id="o_vtiro" type="number" step="0.1" value="${o.velocTiro||''}" oninput="calcOPlive()"></div>
+      </div>
+      <div class="field2">
+        <div><label>Ø matriz (mm) · solo tubo</label><input id="o_matriz" type="number" step="0.1" value="${o.matriz||''}" oninput="calcOPlive()" placeholder="ej: 80"></div>
+        <div id="o_soplado" style="display:flex;align-items:flex-end"><div class="muted" style="font-size:12px;padding-bottom:9px"></div></div>
       </div>
       <div class="field2">
         <div><label>Material a utilizar</label><input id="o_material" list="mpDatalist" value="${esc(o.material||'')}" placeholder="ej: DOW LDPE 206"><datalist id="mpDatalist">${(DATA.materiasPrimas||[]).map(mp=>`<option>${esc(mp.nombre)}</option>`).join('')}</datalist></div>
@@ -1267,7 +1288,11 @@ function nextOPNumero(){
 }
 function recetaCapaForMaq(maqId){ return (DATA.recetasCapa||[]).find(r=>r.maquinaId===maqId); }
 function k1ForFormato(fmt){ return (fmt && /tubo/i.test(fmt)) ? 2 : 1; }
-function conoForAncho(ancho){ const r=DATA.config.conoPesoRef||4.20, L=DATA.config.conoLargoRef||2000; return ancho?+(r*(+ancho)/L).toFixed(3):0; }
+function conoForAncho(ancho){ const r=DATA.config.conoPesoRef||4.60, L=DATA.config.conoLargoRef||2000; return ancho?+(r*(+ancho)/L).toFixed(3):0; }
+// Perímetro de caja según máquina (laminado E1 = 0,618 · tubo = perímetro de la máquina)
+function periMaq(maq,origen){ if(origen==='laminado') return 0.618; return (maq&&maq.perimetro)?maq.perimetro:0; }
+// Relación de soplado (tubo): Ø burbuja = AP·2/π ; BUR = Ø burbuja / Ø matriz
+function relSoplado(ancho,matriz){ if(!ancho) return null; const dia=+(ancho*2/Math.PI).toFixed(1); return {dia, bur:matriz?+(dia/matriz).toFixed(3):null}; }
 function ocFormatoChg(){ const f=document.getElementById('c_formato'); if(f && document.getElementById('c_k1')) document.getElementById('c_k1').value=k1ForFormato(f.value); calcOPlive(); }
 function ocAnchoChg(){ const a=+document.getElementById('c_ancho').value||0; const cc=document.getElementById('c_cono'); if(cc) cc.value=conoForAncho(a); calcOPlive(); }
 function calcOP(p){
@@ -1280,16 +1305,37 @@ function calcOP(p){
   let nbob=(metros&&p.longitud)?Math.ceil(metros/p.longitud):0; if(p.bobinaPar&&nbob%2)nbob++;
   const kgTotal=pesoSC*nbob;
   let dur=0;
-  if(p.perimetro && p.tiro && gxm){ const ph2=p.perimetro*p.tiro*gxm*0.06*2; if(ph2) dur=kgTotal/ph2; }
+  if(p.perimetro && p.tiro && gxm){ const ph2=p.perimetro*p.tiro*gxm*0.06*(2/(p.k1||1)); if(ph2) dur=kgTotal/ph2; }
   else if(p.kgHora && kgTotal){ dur=kgTotal/p.kgHora; }
   return {gxm,pesoSC,pesoCC,metros,nbob,kgTotal,dur};
+}
+function aplicarFichaExt(id){
+  if(!id) return;
+  const fx=(DATA.fichasExt||[]).find(f=>f.id===id); if(!fx) return;
+  const set=(elId,val)=>{ const e=$(elId); if(e&&val!=null&&val!=='') e.value=val; };
+  if(fx.maquinaId&&$('o_maq')) $('o_maq').value=fx.maquinaId;
+  if($('o_tipoExt')) $('o_tipoExt').value=fx.tipoExt||'tubo';
+  if($('c_formato')) $('c_formato').value=fx.formato||'Bobina tubo';
+  if($('o_formato')) $('o_formato').value=fx.formato||'Bobina tubo';
+  set('c_dens',fx.densidad); set('c_ancho',fx.ancho); set('c_esp',fx.espesor); set('c_long',fx.longitudBobina);
+  if($('c_k1')) $('c_k1').value=k1ForFormato(fx.formato);
+  if($('c_cono')) $('c_cono').value=conoForAncho(fx.ancho);
+  set('o_vmotor',fx.velocMotor); set('o_vtiro',fx.velocTiro); set('o_matriz',fx.matriz);
+  set('o_material',fx.material); set('o_dinas',fx.dinas);
+  if($('o_tubo1')) $('o_tubo1').checked=!!fx.tubo1lado;
+  [1,2,3,4,5,6,7,8,9].forEach(i=>{ const e=$('o_t'+i); if(e) e.value=(fx['t'+i]!=null?fx['t'+i]:''); });
+  if(fx.cliente&&$('o_cliente')&&!$('o_cliente').value) $('o_cliente').value=fx.cliente;
+  if($('o_prod')&&!$('o_prod').value) $('o_prod').value=fx.nombre;
+  calcOPlive();
+  toast('Ficha cargada · '+fx.nombre);
 }
 function calcOPlive(){
   const box=$('c_res'); if(!box) return;
   const maq=maqById($('o_maq').value);
   const origen=$('o_origen')?$('o_origen').value:'';
   const tiro=$('o_vtiro')?(+$('o_vtiro').value||0):0;
-  const c=calcOP({ densidad:+$('c_dens').value||0, ancho:+$('c_ancho').value||0, espesor:+$('c_esp').value||0, k1:+$('c_k1').value||1, longitud:+$('c_long').value||0, pesoCono:+$('c_cono').value||0, metros:+$('c_metros').value||0, kgObj:+$('o_cant').value||0, bobinaPar:$('c_par').checked, kgHora:maq?maq.kgHora:null, perimetro:origen==='laminado'?0.618:0, tiro:origen==='laminado'?tiro:0 });
+  const c=calcOP({ densidad:+$('c_dens').value||0, ancho:+$('c_ancho').value||0, espesor:+$('c_esp').value||0, k1:+$('c_k1').value||1, longitud:+$('c_long').value||0, pesoCono:+$('c_cono').value||0, metros:+$('c_metros').value||0, kgObj:+$('o_cant').value||0, bobinaPar:$('c_par').checked, kgHora:maq?maq.kgHora:null, perimetro:periMaq(maq,origen), tiro:tiro });
+  const _sopBox=$('o_soplado'); if(_sopBox){ const tubo=($('o_tipoExt')&&$('o_tipoExt').value==='tubo')||(+$('c_k1').value===2); const rs=tubo?relSoplado(+$('c_ancho').value||0,+($('o_matriz')?$('o_matriz').value:0)||0):null; _sopBox.innerHTML=rs?`<div class="muted" style="font-size:12px;padding-bottom:9px">Ø tubo <b style="color:var(--txt)">${rs.dia} mm</b>${rs.bur?` · soplado <b style="color:var(--txt)">${nfDec(rs.bur)}</b>`:' · falta Ø matriz'}</div>`:`<div class="muted" style="font-size:12px;padding-bottom:9px"></div>`; }
   const f=(n,d=2)=>n?n.toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
   box.innerHTML=`<div class="grid" style="grid-template-columns:1fr 1fr;gap:6px 16px">
     <div><span class="muted">grs/mts:</span> <b>${f(c.gxm,2)}</b></div>
@@ -1351,7 +1397,8 @@ async function guardarOrden(id){
     updatedAt:nowISO()
   };
   const _maqC=maqById(obj.maquinaId);
-  obj.calc=calcOP({ densidad:obj.densidad, ancho:obj.ancho, espesor:obj.espesor, k1:obj.k1, longitud:obj.longitudBobina, pesoCono:obj.pesoCono, metros:obj.metrosPedidos, kgObj:obj.cantidadObjetivo, bobinaPar:obj.bobinaPar, kgHora:_maqC?_maqC.kgHora:null, perimetro:origen==='laminado'?0.618:0, tiro:origen==='laminado'?(obj.velocTiro||0):0 });
+  obj.matriz=+($('o_matriz')?$('o_matriz').value:0)||null;
+  obj.calc=calcOP({ densidad:obj.densidad, ancho:obj.ancho, espesor:obj.espesor, k1:obj.k1, longitud:obj.longitudBobina, pesoCono:obj.pesoCono, metros:obj.metrosPedidos, kgObj:obj.cantidadObjetivo, bobinaPar:obj.bobinaPar, kgHora:_maqC?_maqC.kgHora:null, perimetro:periMaq(_maqC,origen), tiro:obj.velocTiro||0 });
   if(id){
     const o=DATA.ordenes.find(x=>x.id===id);
     obj.estadoProduccion=$('o_estProd').value; obj.estadoDestino=$('o_estDest').value;
@@ -1527,13 +1574,17 @@ function renderCatMaquinas(c){
         <div><label>kg / hora</label><input type="number" value="${m.kgHora||''}" onchange="setMaq('${m.id}','kgHora',this.value)" placeholder="por confirmar"></div>
         <div><label>Color (tablet)</label><input type="color" value="${m.color}" onchange="setMaq('${m.id}','color',this.value)" style="height:38px;padding:3px"></div>
       </div>
+      <div class="field2">
+        <div><label>Perímetro de caja (m/rev) · para duración</label><input type="number" step="0.001" value="${m.perimetro||''}" onchange="setMaq('${m.id}','perimetro',this.value)" placeholder="ej: 0,395 tubo · 0,618 laminado"></div>
+        <div></div>
+      </div>
       <div class="field" style="margin-top:10px"><label>Materias primas compatibles</label>
         <div class="row">${(DATA.materiasPrimas||[]).length?DATA.materiasPrimas.map(mp=>`<label style="display:flex;align-items:center;gap:5px;font-weight:400;font-size:13px;margin:0"><input type="checkbox" style="width:auto" ${m.mpCompatibles.includes(mp.id)?'checked':''} onchange="toggleMP('${m.id}','${mp.id}',this.checked)"> ${esc(mp.nombre)}</label>`).join(''):'<span class="muted" style="font-size:13px">Cargá materias primas primero en la solapa Materias primas.</span>'}</div>
       </div>
       <div class="field" style="margin-top:8px"><label>Especificaciones</label><textarea rows="2" onchange="setMaq('${m.id}','especificaciones',this.value)" placeholder="Ancho máximo, espesores, etc.">${esc(m.especificaciones||'')}</textarea></div>
     </div>`).join('');
 }
-async function setMaq(id,k,val){ const m=maqById(id); m[k]=(k==='kgHora')?(+val||null):val; await saveData(); if(k==='color')render(); }
+async function setMaq(id,k,val){ const m=maqById(id); m[k]=(k==='kgHora'||k==='perimetro')?(+val||null):val; await saveData(); if(k==='color')render(); }
 async function toggleMP(maqId,mpId,on){ const m=maqById(maqId); const i=m.mpCompatibles.indexOf(mpId); if(on&&i<0)m.mpCompatibles.push(mpId); if(!on&&i>=0)m.mpCompatibles.splice(i,1); await saveData(); }
 
 function renderCatMP(c){ catList(c,'materiasPrimas','materia prima','Ej: PET cristal virgen, rPET, PE soplado…'); }
@@ -1768,6 +1819,7 @@ function renderTabletSession(t){
           <div>Tratado: <b style="color:var(--txt)">${[o.tratadoCE?'CE':null,o.tratadoCI?'CI':null,o.tratado2C?'2C':null].filter(Boolean).join(' ')||'—'}${o.dinas?` · ${o.dinas}d`:''}</b></div>
         </div>
         <div style="margin-top:8px;color:var(--muted);font-size:13px">Temperaturas: <b style="color:var(--txt)">${[1,2,3,4,5,6,7,8,9].map(i=>o['t'+i]!=null?o['t'+i]:'—').join(' · ')}</b></div>
+        ${(o.tipoExt==='tubo'&&o.ancho)?(()=>{const rs=relSoplado(o.ancho,o.matriz);return `<div style="margin-top:3px;color:var(--muted);font-size:13px">Soplado: <b style="color:var(--txt)">Ø tubo ${rs.dia} mm${o.matriz?` · matriz Ø${o.matriz} · BUR ${nfDec(rs.bur)}`:''}</b></div>`;})():''}
         <div style="margin-top:3px;color:var(--muted);font-size:11px">Tolva T1-2 · Tornillo T3-5 · Adaptador T6-7 · Cabezal T8-9${o.longBobPet?` · Long. bob. PET ${o.longBobPet} m`:''}</div>
       </div>
       <div class="field2">
