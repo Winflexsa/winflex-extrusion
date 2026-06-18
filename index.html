@@ -232,7 +232,10 @@ function seedData(){
     productos:[],
     tiposProducto:[
       { id:'tp-lampe', nombre:'Lámina PE (laminado)', maquinaId:'maq-1', destinoDefault:'Laminación', pesoBobina:20, longitudBobina:1700 },
-      { id:'tp-barrera', nombre:'Film barrera 3 capas', maquinaId:'maq-3', destinoDefault:'Venta directa', pesoBobina:20, longitudBobina:null }
+      { id:'tp-barrera', nombre:'Film barrera 3 capas', maquinaId:'maq-3', destinoDefault:'Venta directa', pesoBobina:20, longitudBobina:null },
+      { id:'tp-tsc', nombre:'Tubo queso de cerdo (TSC)', maquinaId:'maq-2', destinoDefault:'Venta directa', pesoBobina:12, longitudBobina:500 },
+      { id:'tp-bh', nombre:'Bolsa de horno (tubo)', maquinaId:'maq-2', destinoDefault:'Venta directa', pesoBobina:20, longitudBobina:1000 },
+      { id:'tp-tubohdpe', nombre:'Tubo HDPE', maquinaId:'maq-2', destinoDefault:'Venta directa', pesoBobina:18, longitudBobina:1500 }
     ],
     // Fichas conocidas de Extrusora 2 (tubo soplado) — autocompletan la OP
     fichasExt:[
@@ -390,6 +393,8 @@ function migrate(d){
   const _m2=d.maquinas.find(m=>m.id==='maq-2'); if(_m2){ ['DIOX AV 3 PA6','HDPE 35060'].forEach(n=>{ if(!_m2.mpCompatibles.includes(n)) _m2.mpCompatibles.push(n); }); }
   // fichas conocidas de Extrusora 2
   if(!Array.isArray(d.fichasExt)||!d.fichasExt.length) d.fichasExt=s.fichasExt;
+  // tipos de producto de Extrusora 2 (para que aparezca al crear OC directa)
+  ['tp-tsc','tp-bh','tp-tubohdpe'].forEach(tid=>{ if(!d.tiposProducto.some(t=>t.id===tid)){ const seedTp=s.tiposProducto.find(t=>t.id===tid); if(seedTp) d.tiposProducto.push(seedTp); } });
   if(!d.ordenesEliminadas) d.ordenesEliminadas={};
   if(!d.ocsEliminadas) d.ocsEliminadas={};
   if(!d.maquinas.length) d.maquinas=s.maquinas;
